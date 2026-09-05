@@ -1,0 +1,142 @@
+.row {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.row.cols4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.row.cols2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.cardLarge {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-lg);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 140px;
+}
+
+.cardEyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+}
+
+.cardValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cardSub {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.section {
+  margin-top: var(--space-6);
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--space-3);
+}
+
+.activity {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.activityRow {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--gray-150);
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  font-size: 13px;
+}
+
+.activityRow:last-child {
+  border-bottom: none;
+}
+
+.activityType {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gray-500);
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+.activityTitle {
+  color: var(--gray-900);
+  flex: 1;
+}
+
+.activityMeta {
+  color: var(--gray-500);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.quickActions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+
+.quickAction {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-md);
+  text-decoration: none;
+  color: var(--gray-800);
+  font-size: 14px;
+  font-weight: 500;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.quickAction:hover {
+  border-color: var(--blue-500);
+  box-shadow: var(--shadow-2);
+  text-decoration: none;
+}
+
+.quickActionIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  background: var(--blue-50);
+  color: var(--blue-700);
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 1100px) {
+  .row.cols4,
+  .quickActions {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

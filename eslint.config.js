@@ -1,0 +1,22 @@
+import js from '@eslint/js';
+import globals from 'globals';
+import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import hooks from 'eslint-plugin-react-hooks';
+
+export default [
+  { ignores: ['dist/**', 'node_modules/**'] },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    languageOptions: { parser: tsParser, ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser } },
+    plugins: { '@typescript-eslint': tsPlugin, 'react-hooks': hooks },
+    rules: {
+      ...js.configs.recommended.rules,
+      ...tsPlugin.configs.recommended.rules,
+      ...hooks.configs.recommended.rules,
+      'no-unused-vars': 'off',
+      'no-undef': 'off', // TypeScript validates names including DOM and type-only globals.
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
+];
