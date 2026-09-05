@@ -1,0 +1,75 @@
+/* Shared visual tokens for the Roc Séculaire workspace. */
+:root {
+  /* ── Neutrals — cool slate, productive ──────────────── */
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-150: #eaeef3;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
+
+  /* ── Accent — functional blue ───────────────────────── */
+  --blue-50: #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
+  --blue-500: #2563eb;
+  --blue-600: #1d4ed8;
+  --blue-700: #1e40af;
+
+  /* ── Semantic ───────────────────────────────────────── */
+  --green-50: #ecfdf5;
+  --green-100: #d1fae5;
+  --green-500: #10b981;
+  --green-600: #059669;
+  --green-700: #047857;
+
+  --amber-50: #fffbeb;
+  --amber-100: #fef3c7;
+  --amber-200: #fde68a;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --amber-700: #b45309;
+
+  --red-50: #fef2f2;
+  --red-100: #fee2e2;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
+  --red-700: #b91c1c;
+
+  /* ── Radius ─────────────────────────────────────────── */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+
+  /* ── Shadows ────────────────────────────────────────── */
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-2: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-3: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-pop: 0 12px 28px rgba(15, 23, 42, 0.12), 0 4px 8px rgba(15, 23, 42, 0.06);
+  --ring: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  --ring-error: 0 0 0 3px rgba(239, 68, 68, 0.16);
+
+  /* ── Typography ─────────────────────────────────────── */
+  --font-sans: "Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── Spacing scale (4px) ────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── Layout dimensions ──────────────────────────────── */
+  --header-h: 68px;
+  --sidebar-w: 238px;
+}

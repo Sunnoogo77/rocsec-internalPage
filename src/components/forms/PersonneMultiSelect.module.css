@@ -1,0 +1,140 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700, #374151);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--gray-300, #d1d5db);
+  border-radius: var(--r-sm);
+  padding: 6px 8px;
+  min-height: 40px;
+}
+
+.chips:focus-within {
+  border-color: var(--blue-500, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--blue-50, #eff6ff);
+  color: var(--blue-700, #1d4ed8);
+  border-radius: 999px;
+  padding: 3px 4px 3px 10px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.chip button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chip button:hover {
+  background: rgba(29, 78, 216, 0.15);
+}
+
+.input {
+  flex: 1;
+  min-width: 120px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 14px;
+  padding: 4px 2px;
+  color: inherit;
+}
+
+.dropdown {
+  position: absolute;
+  z-index: 50;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid var(--gray-200, #e5e7eb);
+  border-radius: var(--r-sm);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  max-height: 280px;
+  overflow: auto;
+}
+
+.dropdownItem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.dropdownItem:hover {
+  background: var(--gray-50, #f9fafb);
+}
+
+.role {
+  font-size: 12px;
+  color: var(--gray-500, #6b7280);
+  text-transform: capitalize;
+}
+
+.dropdownEmpty {
+  padding: 12px;
+  color: var(--gray-500, #6b7280);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.dropdownCreate {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-top: 1px solid var(--gray-200, #e5e7eb);
+  background: var(--blue-50, #eff6ff);
+  color: var(--blue-700, #1d4ed8);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.dropdownCreate:hover {
+  background: var(--blue-100, #dbeafe);
+}
+
+.help {
+  font-size: 12px;
+  color: var(--gray-500, #6b7280);
+}
