@@ -52,6 +52,14 @@ export function RolesMultiSelect({
   return (
     <div className={styles.wrapper}>
       {label ? <span className={styles.label}>{label}</span> : null}
+      {rolesQuery.isError && (
+        <p role="alert">
+          Impossible de charger les rôles.{" "}
+          <button type="button" onClick={() => void rolesQuery.refetch()}>
+            Réessayer
+          </button>
+        </p>
+      )}
       <div className={styles.chips}>
         {rolesQuery.isLoading ? (
           <span className={styles.help}>Chargement…</span>
@@ -62,6 +70,7 @@ export function RolesMultiSelect({
               <button
                 key={r.id}
                 type="button"
+                aria-pressed={active}
                 className={`${styles.chip} ${active ? styles.chipActive : ""}`}
                 onClick={() => toggle(r.id)}
               >
@@ -70,21 +79,14 @@ export function RolesMultiSelect({
             );
           })
         )}
-        <button
-          type="button"
-          className={styles.add}
-          onClick={() => setCreating(true)}
-        >
+        <button type="button" className={styles.add} onClick={() => setCreating(true)}>
           + Nouveau rôle
         </button>
       </div>
       {help ? <span className={styles.help}>{help}</span> : null}
 
       {creating ? (
-        <CreateRoleModal
-          onClose={() => setCreating(false)}
-          onCreated={handleCreated}
-        />
+        <CreateRoleModal onClose={() => setCreating(false)} onCreated={handleCreated} />
       ) : null}
     </div>
   );

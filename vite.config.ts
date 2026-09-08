@@ -19,7 +19,7 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      "/media": {
+      "/media/": {
         target: process.env.VITE_API_PROXY ?? "http://127.0.0.1:8765",
         changeOrigin: true,
         secure: false,

@@ -30,8 +30,16 @@ function FieldShell({ id, label, required, help, error, children }: FieldShellPr
         </label>
       ) : null}
       {children}
-      {help && !error ? <span className={styles.help}>{help}</span> : null}
-      {error ? <span className={styles.error}>{error}</span> : null}
+      {help && !error ? (
+        <span id={`${id}-message`} className={styles.help}>
+          {help}
+        </span>
+      ) : null}
+      {error ? (
+        <span id={`${id}-message`} role="alert" className={styles.error}>
+          {error}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -50,6 +58,12 @@ export function Input({ id, label, required, help, error, className, ...rest }: 
       <input
         {...rest}
         id={inputId}
+        aria-invalid={error ? true : rest["aria-invalid"]}
+        aria-describedby={
+          [rest["aria-describedby"], help || error ? `${inputId}-message` : ""]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         required={required}
         className={[styles.input, error ? styles.invalid : "", className].filter(Boolean).join(" ")}
       />
@@ -71,6 +85,12 @@ export function Textarea({ id, label, required, help, error, className, ...rest 
       <textarea
         {...rest}
         id={inputId}
+        aria-invalid={error ? true : rest["aria-invalid"]}
+        aria-describedby={
+          [rest["aria-describedby"], help || error ? `${inputId}-message` : ""]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         required={required}
         className={[styles.textarea, error ? styles.invalid : "", className]
           .filter(Boolean)
@@ -104,6 +124,12 @@ export function Select({
       <select
         {...rest}
         id={inputId}
+        aria-invalid={error ? true : rest["aria-invalid"]}
+        aria-describedby={
+          [rest["aria-describedby"], help || error ? `${inputId}-message` : ""]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         required={required}
         className={[styles.select, error ? styles.invalid : "", className]
           .filter(Boolean)

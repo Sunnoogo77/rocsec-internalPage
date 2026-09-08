@@ -17,9 +17,9 @@
   --blue-50: #eff6ff;
   --blue-100: #dbeafe;
   --blue-200: #bfdbfe;
-  --blue-500: #2563eb;
-  --blue-600: #1d4ed8;
-  --blue-700: #1e40af;
+  --blue-500: #1e47a1;
+  --blue-600: #1e47a1;
+  --blue-700: #15366e;
 
   /* ── Semantic ───────────────────────────────────────── */
   --green-50: #ecfdf5;
@@ -37,8 +37,8 @@
 
   --red-50: #fef2f2;
   --red-100: #fee2e2;
-  --red-500: #ef4444;
-  --red-600: #dc2626;
+  --red-500: #c8332a;
+  --red-600: #a6231a;
   --red-700: #b91c1c;
 
   /* ── Radius ─────────────────────────────────────────── */
@@ -55,8 +55,7 @@
   --ring-error: 0 0 0 3px rgba(239, 68, 68, 0.16);
 
   /* ── Typography ─────────────────────────────────────── */
-  --font-sans: "Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  --font-sans: "Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ── Spacing scale (4px) ────────────────────────────── */
@@ -72,4 +71,64 @@
   /* ── Layout dimensions ──────────────────────────────── */
   --header-h: 68px;
   --sidebar-w: 238px;
+}
+
+:root {
+  color-scheme: light;
+  --surface: #fff;
+  --accent: #1e47a1;
+  --accent-hover: #15366e;
+  --on-accent: #fff;
+  --danger: #c8332a;
+  --success: #047857;
+  --header-h: 72px;
+  --sidebar-w: 244px;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #182232;
+  --gray-50: #111b2a;
+  --gray-100: #202d40;
+  --gray-150: #29384d;
+  --gray-200: #35445a;
+  --gray-300: #52627a;
+  --gray-400: #8f9fb6;
+  --gray-500: #aab8cd;
+  --gray-600: #bdc9da;
+  --gray-700: #d0daea;
+  --gray-800: #e3eaf4;
+  --gray-900: #f4f7fc;
+  --blue-50: #1c3155;
+  --blue-100: #28416a;
+  --blue-200: #36578c;
+  --blue-500: #91b4ff;
+  --blue-600: #a4c1ff;
+  --blue-700: #c1d5ff;
+  --red-50: #382228;
+  --red-100: #5c3038;
+  --red-500: #f38f89;
+  --red-600: #ffa8a1;
+  --red-700: #ffc2bd;
+  --green-50: #15372f;
+  --green-100: #234b3e;
+  --green-500: #6ed4a8;
+  --green-600: #83dfb8;
+  --green-700: #a7edcf;
+  --amber-50: #372f1d;
+  --amber-100: #514423;
+  --amber-200: #756238;
+  --amber-500: #e9ba5e;
+  --amber-600: #edc574;
+  --amber-700: #f6d795;
+  --ring: 0 0 0 3px #8facdf80;
+}
+
+:root {
+  --ink-1: var(--gray-900);
+  --ink-2: var(--gray-600);
+  --bg-tint: var(--blue-50);
+  --rst-blue-wash: var(--blue-50);
+  --rst-blue-deep: var(--blue-700);
+  --rst-blue: var(--accent);
+  --rst-red: var(--danger);
 }

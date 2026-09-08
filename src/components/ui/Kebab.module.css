@@ -25,7 +25,7 @@
   right: 0;
   top: calc(100% + 4px);
   min-width: 180px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--gray-200);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-pop);

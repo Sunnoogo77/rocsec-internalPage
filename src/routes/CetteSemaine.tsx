@@ -1,3 +1,4 @@
+import { QueryFeedback } from "@/components/ui/QueryFeedback";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "@/lib/dayjs";
@@ -154,6 +155,16 @@ export function CetteSemainePage() {
         }}
       />
       <PageBody>
+        <QueryFeedback
+          loading={images.isLoading}
+          error={images.error}
+          retry={() => void images.refetch()}
+        />
+        <QueryFeedback
+          loading={vlogs.isLoading}
+          error={vlogs.error}
+          retry={() => void vlogs.refetch()}
+        />
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {actif ? (
             <Card
@@ -171,9 +182,9 @@ export function CetteSemainePage() {
           ) : (
             <Card title="Aucun vlog actif">
               <p style={{ fontSize: 13, color: "var(--gray-500)" }}>
-                Créez un vlog hebdomadaire et publiez-le pour qu'il apparaisse sur la vitrine.
-                (Page d'accueil et "Cette semaine" tirent désormais le dernier sermon publié
-                dans les 8 derniers jours, indépendamment du vlog.)
+                Créez un vlog hebdomadaire et publiez-le pour qu'il apparaisse sur la vitrine. (Page
+                d'accueil et "Cette semaine" tirent désormais le dernier sermon publié dans les 8
+                derniers jours, indépendamment du vlog.)
               </p>
             </Card>
           )}
@@ -199,7 +210,9 @@ export function CetteSemainePage() {
                     justifyContent: "center",
                     minHeight: 36,
                     padding: "0 14px",
-                    background: uploadMutation.isPending ? "var(--gray-300, #d1d5db)" : "var(--rst-blue, #1e47a1)",
+                    background: uploadMutation.isPending
+                      ? "var(--gray-300, #d1d5db)"
+                      : "var(--rst-blue, #1e47a1)",
                     color: "white",
                     fontFamily: "inherit",
                     fontSize: 13,
@@ -217,8 +230,8 @@ export function CetteSemainePage() {
           >
             <p style={{ fontSize: 13, color: "var(--gray-600)", margin: "0 0 16px" }}>
               La vitrine affiche les images marquées <em>actif=true</em>, triées par ordre
-              croissant. Les images <em>est_grande=true</em> occupent 2× l'espace dans la
-              mosaïque. Les uploads sont rattachés à la semaine courante (S
+              croissant. Les images <em>est_grande=true</em> occupent 2× l'espace dans la mosaïque.
+              Les uploads sont rattachés à la semaine courante (S
               {semaineCourante.semaine}/{semaineCourante.annee}).
             </p>
 
@@ -228,7 +241,7 @@ export function CetteSemainePage() {
                 style={{
                   background: "rgba(220, 38, 38, 0.08)",
                   border: "1px solid rgba(220, 38, 38, 0.25)",
-                  color: "#991b1b",
+                  color: "var(--red-700)",
                   borderRadius: 6,
                   padding: "10px 14px",
                   margin: "0 0 16px",
@@ -260,8 +273,8 @@ export function CetteSemainePage() {
                 }}
               >
                 Aucune image. Utilisez <strong>+ Ajouter depuis l'ordinateur</strong> pour
-                téléverser des images, ou <strong>Depuis la médiathèque</strong> pour
-                réutiliser des images déjà importées.
+                téléverser des images, ou <strong>Depuis la médiathèque</strong> pour réutiliser des
+                images déjà importées.
               </div>
             ) : (
               <div
@@ -348,7 +361,7 @@ function ImageCard({
         border: "1px solid var(--gray-200)",
         borderRadius: 8,
         overflow: "hidden",
-        background: "white",
+        background: "var(--surface)",
         display: "flex",
         flexDirection: "column",
       }}

@@ -58,11 +58,7 @@ export function CreateRoleModal({ onClose, onCreated }: CreateRoleModalProps) {
           <Button variant="ghost" onClick={onClose} disabled={mutation.isPending}>
             Annuler
           </Button>
-          <Button
-            variant="primary"
-            onClick={() => mutation.mutate()}
-            disabled={!canSubmit}
-          >
+          <Button variant="primary" onClick={() => mutation.mutate()} disabled={!canSubmit}>
             {mutation.isPending ? "Création…" : "Créer le rôle"}
           </Button>
         </>
@@ -89,12 +85,12 @@ export function CreateRoleModal({ onClose, onCreated }: CreateRoleModalProps) {
           help="Généré automatiquement depuis le libellé. Modifiable si besoin (doit rester court et sans accent)."
         />
         {serverError ? (
-          <p style={{ color: "#991b1b", fontSize: 13, margin: 0 }}>
+          <p style={{ color: "var(--red-700)", fontSize: 13, margin: 0 }}>
             {serverError.message}
             {serverError.details && typeof serverError.details === "object"
               ? Object.entries(serverError.details).map(([k, v]) => (
                   <span key={k} style={{ display: "block", marginTop: 4 }}>
-                    <em>{k}</em>{" "}: {Array.isArray(v) ? v.join(" ; ") : String(v)}
+                    <em>{k}</em> : {Array.isArray(v) ? v.join(" ; ") : String(v)}
                   </span>
                 ))
               : null}

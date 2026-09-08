@@ -1,165 +1,151 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { BookOpen, Megaphone, Music, Wallet } from "lucide-react";
+import { ArrowRight, BookOpen, Megaphone, Music, MessageSquare, CalendarDays } from "lucide-react";
 import dayjs from "@/lib/dayjs";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { PageBody, PageHead } from "@/components/layout/MainLayout";
-import {
-  cantiquesApi,
-  annoncesApi,
-  nehemieApi,
-  sermonsApi,
-  temoignagesApi,
-} from "@/api";
+import { StatusBadge } from "@/components/ui";
+import { QueryFeedback } from "@/components/ui/QueryFeedback";
+import { sermonsApi, temoignagesApi } from "@/api";
 import styles from "./Dashboard.module.css";
 
-function formatEuro(value: string | number | undefined): string {
-  if (value === undefined) return "—";
-  const n = typeof value === "string" ? parseFloat(value) : value;
-  return new Intl.NumberFormat("fr-FR").format(n) + " €";
-}
-
 export function DashboardPage() {
-  const sermonsQuery = useQuery({
+  const recent = useQuery({
     queryKey: ["dashboard", "sermons"],
-    queryFn: () => sermonsApi.listAdmin({ ordering: "-modifie_le", page_size: 10 }),
+    queryFn: () => sermonsApi.listAdmin({ ordering: "-modifie_le", page_size: 6 }),
   });
-  const moderationQuery = useQuery({
-    queryKey: ["dashboard", "moderation"],
+  const received = useQuery({
+    queryKey: ["temoignages", "count", "recu"],
     queryFn: () => temoignagesApi.list({ statut: "recu", page_size: 1 }),
   });
-  const enRevueQuery = useQuery({
+  const reviewing = useQuery({
+    queryKey: ["temoignages", "count", "en_revue"],
+    queryFn: () => temoignagesApi.list({ statut: "en_revue", page_size: 1 }),
+  });
+  const sermons = useQuery({
     queryKey: ["dashboard", "en_revue"],
     queryFn: () => sermonsApi.listAdmin({ statut: "en_revue", page_size: 1 }),
   });
-  const cantiquesQuery = useQuery({
-    queryKey: ["dashboard", "cantiques"],
-    queryFn: () => cantiquesApi.list({ statut: "publie", page_size: 1 }),
-  });
-  const annoncesQuery = useQuery({
-    queryKey: ["dashboard", "annonces"],
-    queryFn: () => annoncesApi.list({ statut: "publie", page_size: 1 }),
-  });
-  const nehemieQuery = useQuery({
-    queryKey: ["dashboard", "nehemie"],
-    queryFn: () => nehemieApi.get(),
-  });
-
-  const moderationCount =
-    (moderationQuery.data?.count ?? 0) + (enRevueQuery.data?.count ?? 0);
-
+  const tasks = [
+    {
+      title: "Témoignages reçus",
+      note: "Lire les nouveaux messages et préparer leur relecture.",
+      to: "/temoignages?statut=recu",
+      query: received,
+    },
+    {
+      title: "Témoignages en relecture",
+      note: "Relire les textes préparés avant leur publication.",
+      to: "/temoignages?statut=en_revue",
+      query: reviewing,
+    },
+    {
+      title: "Cultes à valider",
+      note: "Vérifier les contenus soumis à la validation.",
+      to: "/sermons?statut=en_revue",
+      query: sermons,
+    },
+  ];
   return (
     <>
       <Breadcrumb items={[{ label: "Tableau de bord" }]} />
       <PageHead
         title="Tableau de bord"
-        lede="Vue d'ensemble de l'activité et des actions à mener cette semaine."
+        lede="Les contenus à suivre et les outils pour préparer la vie de l’église."
       />
       <PageBody>
-        <div className={`${styles.row} ${styles.cols4}`}>
-          <div className={styles.cardLarge}>
-            <span className={styles.cardEyebrow}>Cette semaine</span>
-            <span className={styles.cardValue}>
-              {sermonsQuery.data?.results?.[0]
-                ? dayjs(sermonsQuery.data.results[0].date_culte).format("DD MMM")
-                : "—"}
-            </span>
-            <span className={styles.cardSub}>
-              {sermonsQuery.data?.results?.[0]
-                ? `${sermonsQuery.data.results[0].traductions?.[0]?.titre ?? "Sermon sans titre"} — ${
-                    typeof sermonsQuery.data.results[0].predicateur === "object"
-                      ? sermonsQuery.data.results[0].predicateur.libelle
-                      : ""
-                  }`
-                : "Aucun sermon planifié."}
-            </span>
-          </div>
-          <div className={styles.cardLarge}>
-            <span className={styles.cardEyebrow}>File de modération</span>
-            <span className={styles.cardValue}>{moderationCount}</span>
-            <span className={styles.cardSub}>
-              <Link to="/temoignages">Témoignages reçus + sermons en revue →</Link>
-            </span>
-          </div>
-          <div className={styles.cardLarge}>
-            <span className={styles.cardEyebrow}>Projet Néhémie</span>
-            <span className={styles.cardValue}>
-              {nehemieQuery.data
-                ? `${Math.round(nehemieQuery.data.pourcentage * 10) / 10} %`
-                : "—"}
-            </span>
-            <span className={styles.cardSub}>
-              {nehemieQuery.data
-                ? `${formatEuro(nehemieQuery.data.collecte)} / ${formatEuro(
-                    nehemieQuery.data.objectif,
-                  )}`
-                : "Données indisponibles."}
-            </span>
-          </div>
-          <div className={styles.cardLarge}>
-            <span className={styles.cardEyebrow}>Volumes publiés</span>
-            <span className={styles.cardValue}>
-              {(sermonsQuery.data?.count ?? 0) +
-                (cantiquesQuery.data?.count ?? 0) +
-                (annoncesQuery.data?.count ?? 0)}
-            </span>
-            <span className={styles.cardSub}>
-              {sermonsQuery.data?.count ?? 0} sermons · {cantiquesQuery.data?.count ?? 0}{" "}
-              cantiques · {annoncesQuery.data?.count ?? 0} annonces
-            </span>
-          </div>
-        </div>
-
-        <div className={styles.section}>
-          <h2 className={styles.sectionTitle}>Activité récente</h2>
-          <div className={styles.activity}>
-            {(sermonsQuery.data?.results ?? []).slice(0, 8).map((sermon) => (
-              <div key={sermon.id} className={styles.activityRow}>
-                <span className={styles.activityType}>SERMON</span>
-                <Link to={`/sermons/${sermon.slug}`} className={styles.activityTitle}>
-                  {sermon.traductions?.[0]?.titre ?? sermon.slug}
-                </Link>
-                <span className={styles.activityMeta}>
-                  {dayjs(sermon.modifie_le).fromNow()}
-                </span>
-              </div>
+        <section className={styles.section} aria-labelledby="daily-title">
+          <h2 id="daily-title">À suivre</h2>
+          <div className={styles.tasks}>
+            {tasks.map((task) => (
+              <article key={task.title} className={styles.task}>
+                <div className={styles.taskTop}>
+                  <h3>{task.title}</h3>
+                  <span className={styles.count}>
+                    {task.query.isSuccess ? task.query.data.count : "—"}
+                  </span>
+                </div>
+                <p>{task.note}</p>
+                {task.query.isError ? (
+                  <button className={styles.retry} onClick={() => void task.query.refetch()}>
+                    Chargement impossible · Réessayer
+                  </button>
+                ) : (
+                  <Link to={task.to}>
+                    Ouvrir la liste <ArrowRight size={15} aria-hidden />
+                  </Link>
+                )}
+              </article>
             ))}
-            {(sermonsQuery.data?.results ?? []).length === 0 ? (
-              <div className={styles.activityRow}>
-                <span className={styles.activityMeta}>Aucune activité récente.</span>
+          </div>
+        </section>
+        <section className={styles.section} aria-labelledby="prepare-title">
+          <h2 id="prepare-title">Préparer un contenu</h2>
+          <div className={styles.shortcuts}>
+            <Link to="/sermons/nouveau">
+              <BookOpen size={20} aria-hidden />
+              <span>Nouveau culte</span>
+              <ArrowRight size={16} aria-hidden />
+            </Link>
+            <Link to="/cantiques/nouveau">
+              <Music size={20} aria-hidden />
+              <span>Nouveau cantique</span>
+              <ArrowRight size={16} aria-hidden />
+            </Link>
+            <Link to="/annonces/nouvelle">
+              <Megaphone size={20} aria-hidden />
+              <span>Nouvelle annonce</span>
+              <ArrowRight size={16} aria-hidden />
+            </Link>
+            <Link to="/temoignages/nouveau">
+              <MessageSquare size={20} aria-hidden />
+              <span>Saisir un témoignage</span>
+              <ArrowRight size={16} aria-hidden />
+            </Link>
+          </div>
+        </section>
+        <div className={styles.lower}>
+          <section className={styles.section} aria-labelledby="recent-title">
+            <div className={styles.sectionHead}>
+              <h2 id="recent-title">Cultes récemment modifiés</h2>
+              <Link to="/sermons">Tous les cultes</Link>
+            </div>
+            <QueryFeedback
+              loading={recent.isLoading}
+              error={recent.error}
+              retry={() => void recent.refetch()}
+            />
+            {recent.isSuccess && (
+              <div className={styles.recent}>
+                {recent.data.results.length ? (
+                  recent.data.results.map((sermon) => (
+                    <div className={styles.recentRow} key={sermon.id}>
+                      <div>
+                        <Link to={`/sermons/${sermon.slug}`}>
+                          {sermon.traductions.find((t) => t.langue === "fr")?.titre || sermon.slug}
+                        </Link>
+                        <p>Modifié le {dayjs(sermon.modifie_le).format("D MMM YYYY")}</p>
+                      </div>
+                      <StatusBadge statut={sermon.statut} />
+                    </div>
+                  ))
+                ) : (
+                  <p className={styles.empty}>Aucun culte enregistré pour le moment.</p>
+                )}
               </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className={styles.section}>
-          <h2 className={styles.sectionTitle}>Actions rapides</h2>
-          <div className={styles.quickActions}>
-            <Link to="/sermons/nouveau" className={styles.quickAction}>
-              <span className={styles.quickActionIcon}>
-                <BookOpen size={16} />
-              </span>
-              <span>+ Nouveau sermon</span>
+            )}
+          </section>
+          <aside className={styles.week}>
+            <CalendarDays size={24} aria-hidden />
+            <h2>Cette semaine</h2>
+            <p>Retrouvez les rendez-vous, les images et les vidéos de la semaine.</p>
+            <Link to="/cette-semaine">
+              Préparer la semaine <ArrowRight size={16} aria-hidden />
             </Link>
-            <Link to="/annonces/nouvelle" className={styles.quickAction}>
-              <span className={styles.quickActionIcon}>
-                <Megaphone size={16} />
-              </span>
-              <span>+ Nouvelle annonce</span>
-            </Link>
-            <Link to="/cantiques/nouveau" className={styles.quickAction}>
-              <span className={styles.quickActionIcon}>
-                <Music size={16} />
-              </span>
-              <span>+ Nouveau cantique</span>
-            </Link>
-            <Link to="/nehemie" className={styles.quickAction}>
-              <span className={styles.quickActionIcon}>
-                <Wallet size={16} />
-              </span>
-              <span>MAJ Néhémie</span>
-            </Link>
-          </div>
+            <hr />
+            <Link to="/personnes">Consulter le répertoire</Link>
+            <p>Vérifiez les fiches et les rôles avant de choisir les intervenants.</p>
+          </aside>
         </div>
       </PageBody>
     </>

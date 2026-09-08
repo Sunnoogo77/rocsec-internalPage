@@ -1,7 +1,6 @@
 import { useAuth } from "@/auth/AuthContext";
 import { NavLink } from "react-router-dom";
 import {
-  Bell,
   BookOpen,
   Calendar,
   CalendarDays,
@@ -26,9 +25,10 @@ interface NavLinkSpec {
 
 interface SidebarProps {
   modCount?: number;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ modCount = 0 }: SidebarProps) {
+export function Sidebar({ modCount = 0, onNavigate }: SidebarProps) {
   const { user } = useAuth();
   const items: { section: string; links: NavLinkSpec[] }[] = [
     {
@@ -100,6 +100,7 @@ export function Sidebar({ modCount = 0 }: SidebarProps) {
             <NavLink
               key={link.to}
               to={link.to}
+              onClick={onNavigate}
               end={link.to === "/"}
               className={({ isActive }) =>
                 [styles.nav, isActive ? styles.navActive : ""].filter(Boolean).join(" ")
@@ -115,8 +116,7 @@ export function Sidebar({ modCount = 0 }: SidebarProps) {
         </div>
       ))}
       <div className={styles.sideFoot}>
-        <Bell size={14} aria-hidden />
-        <span>RST · {new Date().getFullYear()}</span>
+        <span>Roc Séculaire · Espace interne</span>
       </div>
     </nav>
   );

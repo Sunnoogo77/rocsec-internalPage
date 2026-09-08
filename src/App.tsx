@@ -1,5 +1,6 @@
+import type { ComponentType } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { MainLayout } from "./components/layout/MainLayout";
@@ -33,6 +34,11 @@ const queryClient = new QueryClient({
   },
 });
 
+function EditorRoute({ component: Component }: { component: ComponentType }) {
+  const { pathname } = useLocation();
+  return <Component key={pathname} />;
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -50,17 +56,32 @@ export function App() {
               <Route index element={<DashboardPage />} />
               <Route path="sermons" element={<SermonsListPage />} />
               <Route path="sermons/series" element={<SeriesPage />} />
-              <Route path="sermons/nouveau" element={<SermonEditPage />} />
-              <Route path="sermons/:slug" element={<SermonEditPage />} />
+              <Route path="sermons/nouveau" element={<EditorRoute component={SermonEditPage} />} />
+              <Route path="sermons/:slug" element={<EditorRoute component={SermonEditPage} />} />
               <Route path="cantiques" element={<CantiquesListPage />} />
-              <Route path="cantiques/nouveau" element={<CantiqueEditPage />} />
-              <Route path="cantiques/:slug" element={<CantiqueEditPage />} />
+              <Route
+                path="cantiques/nouveau"
+                element={<EditorRoute component={CantiqueEditPage} />}
+              />
+              <Route
+                path="cantiques/:slug"
+                element={<EditorRoute component={CantiqueEditPage} />}
+              />
               <Route path="annonces" element={<AnnoncesListPage />} />
-              <Route path="annonces/nouvelle" element={<AnnonceEditPage />} />
-              <Route path="annonces/:slug" element={<AnnonceEditPage />} />
+              <Route
+                path="annonces/nouvelle"
+                element={<EditorRoute component={AnnonceEditPage} />}
+              />
+              <Route path="annonces/:slug" element={<EditorRoute component={AnnonceEditPage} />} />
               <Route path="temoignages" element={<TemoignagesPage />} />
-              <Route path="temoignages/nouveau" element={<TemoignageEditPage />} />
-              <Route path="temoignages/:slug" element={<TemoignageEditPage />} />
+              <Route
+                path="temoignages/nouveau"
+                element={<EditorRoute component={TemoignageEditPage} />}
+              />
+              <Route
+                path="temoignages/:slug"
+                element={<EditorRoute component={TemoignageEditPage} />}
+              />
               <Route path="cette-semaine" element={<CetteSemainePage />} />
               <Route path="nehemie" element={<NehemiePage />} />
               <Route path="personnes" element={<PersonnesPage />} />

@@ -1,3 +1,4 @@
+import { Modal } from "@/components/ui/Modal";
 /**
  * Gestion des séries de sermons — exposée en deux modes :
  *  - `SeriesPanel` : modal/panneau coulissant ouvert depuis la page Cultes
@@ -9,7 +10,7 @@
  * `PublicReadAdminWrite`) expose déjà tous les endpoints CRUD.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
@@ -75,7 +76,7 @@ function SeriesContent() {
               style={{
                 background: "rgba(220, 38, 38, 0.08)",
                 border: "1px solid rgba(220, 38, 38, 0.25)",
-                color: "#991b1b",
+                color: "var(--red-700)",
                 borderRadius: 6,
                 padding: "10px 14px",
                 margin: "0 0 14px",
@@ -147,7 +148,8 @@ function SeriesContent() {
           <p style={{ fontSize: 13, color: "var(--gray-500)" }}>Chargement…</p>
         ) : (seriesQuery.data?.results ?? []).length === 0 ? (
           <p style={{ fontSize: 13, color: "var(--gray-500)" }}>
-            Aucune série pour le moment. Cliquez sur <strong>+ Nouvelle série</strong> pour commencer.
+            Aucune série pour le moment. Cliquez sur <strong>+ Nouvelle série</strong> pour
+            commencer.
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -163,80 +165,13 @@ function SeriesContent() {
 
 /** Modal centrale pour gérer les séries depuis la page Cultes. */
 export function SeriesPanel({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="seriesPanelTitle"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1400,
-        background: "rgba(15, 23, 42, 0.45)",
-        backdropFilter: "blur(6px)",
-        WebkitBackdropFilter: "blur(6px)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "60px 24px 24px",
-        overflowY: "auto",
-        animation: "fadeIn 180ms ease-out",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 760,
-          background: "white",
-          borderRadius: 10,
-          boxShadow: "0 24px 60px rgba(0, 0, 0, 0.22)",
-          padding: 24,
-        }}
-      >
-        <header
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 14,
-            marginBottom: 14,
-            paddingBottom: 14,
-            borderBottom: "1px solid var(--gray-200, #e5e7eb)",
-          }}
-        >
-          <div>
-            <h2 id="seriesPanelTitle" style={{ margin: 0, fontSize: 22, color: "var(--ink-1, #0f1a3a)" }}>
-              Séries de prédications
-            </h2>
-            <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--gray-600, #4b5563)" }}>
-              Regroupez plusieurs prédications sous un même thème. Une prédication peut
-              appartenir à une série ou rester indépendante.
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Fermer
-          </Button>
-        </header>
-
-        <SeriesContent />
-      </div>
-    </div>
+    <Modal open wide onClose={onClose} title="Séries de prédications">
+      <p style={{ marginBottom: 20, color: "var(--gray-600)" }}>
+        Regroupez plusieurs cultes autour d’un même thème.
+      </p>
+      <SeriesContent />
+    </Modal>
   );
 }
 
@@ -244,12 +179,7 @@ export function SeriesPanel({ onClose }: { onClose: () => void }) {
 export function SeriesPage() {
   return (
     <>
-      <Breadcrumb
-        items={[
-          { label: "Cultes", to: "/sermons" },
-          { label: "Séries de sermons" },
-        ]}
-      />
+      <Breadcrumb items={[{ label: "Cultes", to: "/sermons" }, { label: "Séries de sermons" }]} />
       <PageHead
         title="Séries de sermons"
         lede="Regroupez plusieurs prédications sous un même thème (ex. « L'Ordre de l'Église »). La série apparaît ensuite dans le sélecteur lors de l'édition d'un sermon."
@@ -296,7 +226,7 @@ function SerieRow({ serie, onChange }: { serie: Serie; onChange: () => void }) {
           padding: "12px 14px",
           border: "1px solid var(--gray-200)",
           borderRadius: 6,
-          background: "white",
+          background: "var(--surface)",
         }}
       >
         <div style={{ minWidth: 0, flex: 1 }}>
@@ -353,7 +283,11 @@ function SerieRow({ serie, onChange }: { serie: Serie; onChange: () => void }) {
             size="sm"
             variant="dangerOutline"
             onClick={() => {
-              if (window.confirm(`Supprimer la série « ${serie.titre_fr} » ? Les sermons associés perdront leur référence.`)) {
+              if (
+                window.confirm(
+                  `Supprimer la série « ${serie.titre_fr} » ? Les sermons associés perdront leur référence.`,
+                )
+              ) {
                 remove.mutate();
               }
             }}

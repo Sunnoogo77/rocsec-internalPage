@@ -7,7 +7,10 @@
   border: 1px solid transparent;
   border-radius: var(--r-md);
   cursor: pointer;
-  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
   white-space: nowrap;
   font-family: inherit;
   line-height: 1;
@@ -25,46 +28,46 @@
 
 /* sizes */
 .sm {
-  height: 28px;
+  min-height: 34px;
   padding: 0 10px;
   font-size: 12px;
   border-radius: var(--r-sm);
 }
 
 .md {
-  height: 34px;
+  min-height: 44px;
   padding: 0 14px;
   font-size: 14px;
 }
 
 .lg {
-  height: 40px;
+  min-height: 44px;
   padding: 0 18px;
   font-size: 14px;
 }
 
 .icon {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   padding: 0;
 }
 
 /* variants */
 .primary {
-  background: var(--blue-500);
+  background: var(--accent);
   color: #fff;
   box-shadow: var(--shadow-1);
 }
 .primary:hover:not(:disabled) {
-  background: var(--blue-600);
+  background: var(--accent-hover);
 }
 .primary:active:not(:disabled) {
-  background: var(--blue-700);
+  background: var(--accent-hover);
   box-shadow: none;
 }
 
 .secondary {
-  background: #fff;
+  background: var(--surface);
   color: var(--gray-800);
   border-color: var(--gray-300);
   box-shadow: var(--shadow-1);
@@ -84,15 +87,15 @@
 }
 
 .danger {
-  background: var(--red-500);
+  background: var(--danger);
   color: #fff;
 }
 .danger:hover:not(:disabled) {
-  background: var(--red-600);
+  background: #a6231a;
 }
 
 .dangerOutline {
-  background: #fff;
+  background: var(--surface);
   color: var(--red-700);
   border-color: var(--red-100);
 }
@@ -102,10 +105,18 @@
 }
 
 .success {
-  background: var(--green-600);
+  background: var(--success);
   color: #fff;
   border-color: var(--green-600);
 }
 .success:hover:not(:disabled) {
-  background: var(--green-700);
+  background: #065f46;
+}
+
+@media (max-width: 760px) {
+  .btn {
+    min-height: 44px;
+    white-space: normal;
+    line-height: 1.35;
+  }
 }

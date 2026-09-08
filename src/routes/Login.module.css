@@ -10,7 +10,7 @@
 .card {
   width: 100%;
   max-width: 400px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--gray-200);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-3);
@@ -83,25 +83,113 @@
   gap: var(--space-2);
 }
 
-.page { display: grid; grid-template-columns: 1.1fr 1fr; padding: 0; background: #fafbf9; }
-.intro { min-height: 100vh; padding: clamp(36px, 7vw, 110px); display: flex; flex-direction: column; justify-content: center; background: #172f35; color: #f5f8f5; position: relative; }
-.eyebrow { font-size: 11px; letter-spacing: .2em; color: #b0cecb; font-weight: 600; margin-bottom: 64px; }
-.intro h1 { font-family: Georgia, serif; font-size: clamp(40px, 4.3vw, 66px); line-height: 1.16; font-weight: 400; letter-spacing: -.04em; margin: 0 0 28px; }
-.intro p { max-width: 365px; color: #b5cbcd; font-size: 16px; line-height: 1.8; }
-.introFoot { margin-top: 80px; font-size: 10px; letter-spacing: .12em; color: #9fb7ba; display: flex; gap: 16px; }
-.card { justify-self: center; max-width: 440px; border: none; box-shadow: none; background: transparent; padding: 40px; gap: 26px; }
-.brand { align-self: flex-start; }
-.brandMark { background: #24484b; }
-.welcome h2 { font-size: 28px; letter-spacing: -.025em; margin: 12px 0 10px; }
-.welcome p { color: var(--gray-500); margin: 0; line-height: 1.6; }
-.form { gap: 22px; }
-.actions { margin-top: 8px; }
-.helper { text-align: left; line-height: 1.6; }
+.page {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  padding: 0;
+  background: var(--surface);
+}
+.intro {
+  min-height: 100vh;
+  padding: clamp(36px, 7vw, 110px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #15366e;
+  color: #f5f8f5;
+  position: relative;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: #c6d5f2;
+  font-weight: 600;
+  margin-bottom: 64px;
+}
+.intro h1 {
+  font-family: var(--font-sans);
+  font-size: clamp(32px, 3vw, 48px);
+  line-height: 1.16;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  margin: 0 0 28px;
+}
+.intro p {
+  max-width: 365px;
+  color: #d5dff2;
+  font-size: 16px;
+  line-height: 1.8;
+}
+.introFoot {
+  margin-top: 80px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #c6d5f2;
+  display: flex;
+  gap: 16px;
+}
+.card {
+  justify-self: center;
+  max-width: 440px;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 40px;
+  gap: 26px;
+}
+.brand {
+  align-self: flex-start;
+}
+.brandMark {
+  background: var(--accent);
+}
+.welcome h2 {
+  font-size: 28px;
+  letter-spacing: -0.025em;
+  margin: 12px 0 10px;
+}
+.welcome p {
+  color: var(--gray-500);
+  margin: 0;
+  line-height: 1.6;
+}
+.form {
+  gap: 22px;
+}
+.actions {
+  margin-top: 8px;
+}
+.helper {
+  text-align: left;
+  line-height: 1.6;
+}
 @media (max-width: 760px) {
-  .page { display: flex; flex-direction: column; align-items: stretch; }
-  .intro { min-height: auto; padding: 28px; }
-  .eyebrow { margin-bottom: 24px; }
-  .intro h1 { font-size: 36px; margin-bottom: 0; }
-  .intro p, .introFoot { display: none; }
-  .card { align-self: center; padding: 32px 28px; }
+  .page {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .intro {
+    min-height: auto;
+    padding: 28px;
+  }
+  .eyebrow {
+    margin-bottom: 24px;
+  }
+  .intro h1 {
+    font-size: 36px;
+    margin-bottom: 0;
+  }
+  .intro p,
+  .introFoot {
+    display: none;
+  }
+  .card {
+    align-self: center;
+    padding: 32px 28px;
+  }
+}
+
+.brandMark {
+  border-bottom: 4px solid var(--danger);
 }

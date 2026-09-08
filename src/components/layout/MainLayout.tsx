@@ -1,14 +1,25 @@
+import { useState } from "react";
+import { Modal } from "@/components/ui/Modal";
 import { Outlet } from "react-router-dom";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import styles from "./Layout.module.css";
 
 export function MainLayout() {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className={styles.shell}>
-      <Header />
+      <a className={styles.skipLink} href="#contenu">
+        Aller au contenu
+      </a>
+      <Header onMenu={() => setMenuOpen(true)} />
       <Sidebar />
-      <main className={styles.main}>
+      <Modal open={menuOpen} onClose={() => setMenuOpen(false)} title="Navigation">
+        <div className={styles.mobileNav}>
+          <Sidebar onNavigate={() => setMenuOpen(false)} />
+        </div>
+      </Modal>
+      <main id="contenu" tabIndex={-1} className={styles.main}>
         <Outlet />
       </main>
     </div>

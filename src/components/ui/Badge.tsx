@@ -31,7 +31,7 @@ export function Badge({ variant = "soft", withDot = true, children }: BadgeProps
 
 const STATUT_WORKFLOW_LABELS: Record<StatutWorkflow, string> = {
   brouillon: "Brouillon",
-  en_revue: "En revue",
+  en_revue: "En relecture",
   publie: "Publié",
   rejete: "Rejeté",
   archive: "Archivé",
@@ -39,7 +39,7 @@ const STATUT_WORKFLOW_LABELS: Record<StatutWorkflow, string> = {
 
 const STATUT_TEMOIGNAGE_LABELS: Record<StatutTemoignage, string> = {
   recu: "Reçu",
-  en_revue: "En revue",
+  en_revue: "En relecture",
   publie: "Publié",
   rejete: "Rejeté",
 };
@@ -58,7 +58,11 @@ export function StatusBadge({ statut }: StatusBadgeProps) {
   if (statut === "recu") {
     return <Badge variant="recu">{STATUT_TEMOIGNAGE_LABELS.recu}</Badge>;
   }
-  return <Badge variant={statut as StatutWorkflow}>{STATUT_WORKFLOW_LABELS[statut as StatutWorkflow] ?? statut}</Badge>;
+  return (
+    <Badge variant={statut as StatutWorkflow}>
+      {STATUT_WORKFLOW_LABELS[statut as StatutWorkflow] ?? statut}
+    </Badge>
+  );
 }
 
 interface TemporalBadgeProps {

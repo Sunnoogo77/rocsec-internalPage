@@ -1,3 +1,5 @@
+import { IdentityCheck, useWorkflowAccess } from "./WorkflowAccess";
+import common from "@/routes/common.module.css";
 /**
  * Modale de création inline d'une `Personne` depuis le PersonneMultiSelect.
  *
@@ -37,6 +39,7 @@ export function CreatePersonneModal({
   onClose,
   onCreated,
 }: CreatePersonneModalProps) {
+  const access = useWorkflowAccess();
   // On essaie de découper "Prénom Nom" depuis la recherche en cours.
   const parts = initialName.trim().split(/\s+/);
   const [civilite, setCivilite] = useState("Fr.");
@@ -57,30 +60,30 @@ export function CreatePersonneModal({
 
   const serverError = mutation.error instanceof HttpError ? mutation.error : null;
 
-  const canSubmit = (prenom.trim() || nom.trim()).length > 0 && !mutation.isPending;
+  const canSubmit =
+    prenom.trim().length > 0 && nom.trim().length > 0 && !mutation.isPending && access.canManage;
 
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={() => {
+        if (!mutation.isPending) onClose();
+      }}
       title="Ajouter une personne"
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={mutation.isPending}>
             Annuler
           </Button>
-          <Button
-            variant="primary"
-            onClick={() => mutation.mutate()}
-            disabled={!canSubmit}
-          >
+          <Button variant="primary" onClick={() => mutation.mutate()} disabled={!canSubmit}>
             {mutation.isPending ? "Création…" : "Créer la personne"}
           </Button>
         </>
       }
     >
       <div style={{ display: "grid", gap: 12 }}>
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr 1fr" }}>
+        {!access.recent && <IdentityCheck />}
+        <div className={common.formGrid}>
           <Select
             label="Civilité"
             value={civilite}
@@ -111,9 +114,7 @@ export function CreatePersonneModal({
           help="Sélectionne tous les rôles applicables (pasteur, chantre, choeur…). Bouton « + Nouveau rôle » pour en créer un."
         />
         {serverError ? (
-          <p style={{ color: "#991b1b", fontSize: 13, margin: 0 }}>
-            {serverError.message}
-          </p>
+          <p style={{ color: "var(--red-700)", fontSize: 13, margin: 0 }}>{serverError.message}</p>
         ) : null}
       </div>
     </Modal>

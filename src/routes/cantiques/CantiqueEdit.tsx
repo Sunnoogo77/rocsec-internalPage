@@ -1,3 +1,8 @@
+import { SaveFooter } from "@/components/forms/SaveFooter";
+import { usePeople } from "@/lib/people";
+import { QueryFeedback } from "@/components/ui/QueryFeedback";
+import { IdentityCheck, useWorkflowAccess } from "@/components/forms/WorkflowAccess";
+import { useDraftGuard } from "@/lib/useDraftGuard";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +17,6 @@ import {
   evenementsCantiqueApi,
   famillesCantiqueApi,
   groupesPersonnesApi,
-  personnesApi,
 } from "@/api";
 import { HttpError } from "@/api/client";
 import type {
@@ -23,7 +27,6 @@ import type {
   VerseBlock,
 } from "@/types";
 import common from "../common.module.css";
-
 
 interface PassageRow {
   ordre: number;
@@ -51,7 +54,8 @@ function TimeInput({
 }) {
   const mm = seconds != null ? Math.floor(seconds / 60) : 0;
   const ss = seconds != null ? seconds % 60 : 0;
-  const set = (m: number, s: number) => onChange(Math.max(0, m) * 60 + Math.min(59, Math.max(0, s)));
+  const set = (m: number, s: number) =>
+    onChange(Math.max(0, m) * 60 + Math.min(59, Math.max(0, s)));
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--gray-700)" }}>{label}</label>
@@ -64,8 +68,12 @@ function TimeInput({
           onChange={(e) => set(Number.parseInt(e.target.value, 10) || 0, ss)}
           aria-label={`${label} — minutes`}
           style={{
-            width: 56, padding: "8px 6px", textAlign: "center",
-            border: "1px solid var(--gray-200)", borderRadius: 4, fontSize: 14,
+            width: 56,
+            padding: "8px 6px",
+            textAlign: "center",
+            border: "1px solid var(--gray-200)",
+            borderRadius: 4,
+            fontSize: 14,
             background: disabled ? "var(--gray-100)" : "white",
           }}
         />
@@ -79,8 +87,12 @@ function TimeInput({
           onChange={(e) => set(mm, Number.parseInt(e.target.value, 10) || 0)}
           aria-label={`${label} — secondes`}
           style={{
-            width: 56, padding: "8px 6px", textAlign: "center",
-            border: "1px solid var(--gray-200)", borderRadius: 4, fontSize: 14,
+            width: 56,
+            padding: "8px 6px",
+            textAlign: "center",
+            border: "1px solid var(--gray-200)",
+            borderRadius: 4,
+            fontSize: 14,
             background: disabled ? "var(--gray-100)" : "white",
           }}
         />
@@ -104,7 +116,10 @@ function PassageInterpretesChips({
   onChange: (libelle: string) => void;
 }) {
   const selected = value
-    ? value.split(" · ").map((s) => s.trim()).filter(Boolean)
+    ? value
+        .split(" · ")
+        .map((s) => s.trim())
+        .filter(Boolean)
     : [];
   const toggle = (libelle: string) => {
     const next = selected.includes(libelle)
@@ -115,8 +130,8 @@ function PassageInterpretesChips({
   if (candidats.length === 0) {
     return (
       <p style={{ fontSize: 12, color: "var(--gray-500)", fontStyle: "italic", margin: "4px 0 0" }}>
-        Sélectionne d'abord les interprètes / chœurs de la chanson ci-dessus pour
-        pouvoir les attribuer à ce passage.
+        Sélectionne d'abord les interprètes / chœurs de la chanson ci-dessus pour pouvoir les
+        attribuer à ce passage.
       </p>
     );
   }
@@ -128,9 +143,17 @@ function PassageInterpretesChips({
           <label
             key={c.id}
             style={{
-              display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13,
-              padding: "5px 10px", borderRadius: 999, cursor: "pointer", userSelect: "none",
-              background: on ? "var(--rst-blue-wash, rgba(30,71,161,0.08))" : "var(--gray-50, #f9fafb)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 13,
+              padding: "5px 10px",
+              borderRadius: 999,
+              cursor: "pointer",
+              userSelect: "none",
+              background: on
+                ? "var(--rst-blue-wash, rgba(30,71,161,0.08))"
+                : "var(--gray-50, #f9fafb)",
               border: `1px solid ${on ? "var(--rst-blue, #1e47a1)" : "var(--gray-200)"}`,
               color: on ? "var(--rst-blue-deep, #15366E)" : "var(--ink-1)",
               fontWeight: on ? 600 : 400,
@@ -177,7 +200,14 @@ function PassagesEditor({
     onChange(
       normalize([
         ...passages,
-        { ordre: passages.length + 1, titre: "", start_sec: start, end_sec: null, interpretes_libelle: "", lyrics: [] },
+        {
+          ordre: passages.length + 1,
+          titre: "",
+          start_sec: start,
+          end_sec: null,
+          interpretes_libelle: "",
+          lyrics: [],
+        },
       ]),
     );
   };
@@ -208,7 +238,9 @@ function PassagesEditor({
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <span
                 style={{
-                  fontSize: 12, fontWeight: 700, color: "var(--rst-blue, #1e47a1)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--rst-blue, #1e47a1)",
                   minWidth: 28,
                 }}
               >
@@ -255,11 +287,27 @@ function PassagesEditor({
             </div>
 
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--gray-700)", display: "block", marginBottom: 6 }}>
+              <label
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--gray-700)",
+                  display: "block",
+                  marginBottom: 6,
+                }}
+              >
                 Paroles de ce chant
               </label>
-              <small style={{ fontSize: 11, color: "var(--gray-500)", display: "block", marginBottom: 8 }}>
-                Affichées automatiquement sur la vitrine lorsque la vidéo atteint ce passage (onglet « Paroles »).
+              <small
+                style={{
+                  fontSize: 11,
+                  color: "var(--gray-500)",
+                  display: "block",
+                  marginBottom: 8,
+                }}
+              >
+                Affichées automatiquement sur la vitrine lorsque la vidéo atteint ce passage (onglet
+                « Paroles »).
               </small>
               <LyricsEditor
                 blocks={p.lyrics}
@@ -300,13 +348,11 @@ function GroupesMultiSelect({
   const actifs = groupes.filter((g) => g.actif);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--gray-700)" }}>
-        {label}
-      </label>
+      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--gray-700)" }}>{label}</label>
       {actifs.length === 0 ? (
         <p style={{ fontSize: 12, color: "var(--gray-500)", margin: "4px 0", fontStyle: "italic" }}>
-          Aucun groupe actif disponible. Crée-en via le bouton « Gérer les groupes »
-          sur la page Personnes.
+          Aucun groupe actif disponible. Crée-en via le bouton « Gérer les groupes » sur la page
+          Personnes.
         </p>
       ) : (
         <div
@@ -317,7 +363,7 @@ function GroupesMultiSelect({
             padding: 10,
             border: "1px solid var(--gray-200)",
             borderRadius: 6,
-            background: "white",
+            background: "var(--surface)",
           }}
         >
           {actifs.map((g) => (
@@ -359,9 +405,7 @@ function GroupesMultiSelect({
           ))}
         </div>
       )}
-      {help && (
-        <small style={{ fontSize: 11, color: "var(--gray-500)" }}>{help}</small>
-      )}
+      {help && <small style={{ fontSize: 11, color: "var(--gray-500)" }}>{help}</small>}
     </div>
   );
 }
@@ -476,11 +520,7 @@ export function CantiqueEditPage() {
     staleTime: 60_000,
   });
 
-  const personnesQuery = useQuery({
-    queryKey: ["personnes-all-for-cantique"],
-    queryFn: () => personnesApi.list({ page_size: 200 }),
-    staleTime: 60_000,
-  });
+  const personnesQuery = usePeople();
 
   const [draft, setDraft] = useState<DraftState>(emptyDraft());
   const [hydrated, setHydrated] = useState(isNew);
@@ -501,8 +541,7 @@ export function CantiqueEditPage() {
       evenement: query.data.evenement_detail?.id ?? query.data.evenement ?? "",
       interpretes: interpretesIds,
       groupes_interpretes: groupesIds,
-      interprete_lead:
-        query.data.interprete_lead_detail?.id ?? query.data.interprete_lead ?? "",
+      interprete_lead: query.data.interprete_lead_detail?.id ?? query.data.interprete_lead ?? "",
       est_medley: query.data.est_medley ?? false,
       passages: (query.data.passages ?? []).map((p) => ({
         ordre: p.ordre,
@@ -545,11 +584,11 @@ export function CantiqueEditPage() {
     const out: { id: string; libelle: string }[] = [];
     const seen = new Set<string>();
     const push = (id: string, libelle: string) => {
-      if (!libelle || seen.has(libelle)) return;
-      seen.add(libelle);
+      if (!libelle || seen.has(id)) return;
+      seen.add(id);
       out.push({ id, libelle });
     };
-    const personnes = personnesQuery.data?.results ?? [];
+    const personnes = personnesQuery.data ?? [];
     for (const pid of draft.interpretes) {
       const p = personnes.find((x) => x.id === pid);
       if (p) push(p.id, p.libelle);
@@ -588,10 +627,15 @@ export function CantiqueEditPage() {
       return "Pour un cantique du recueil, indiquez le numéro entier (utilisé pour le tri et la référence affichée).";
     }
     if (!draft.fr.titre.trim()) return "Le titre est requis.";
+    if (draft.interprete_lead && !draft.interpretes.includes(draft.interprete_lead))
+      return "La voix principale doit faire partie des interprètes sélectionnés.";
     return null;
   };
 
   const [clientError, setClientError] = useState<string | null>(null);
+
+  const access = useWorkflowAccess(query.data);
+  const draftGuard = useDraftGuard(draft, hydrated);
 
   const save = useMutation({
     mutationFn: () => {
@@ -600,9 +644,7 @@ export function CantiqueEditPage() {
         groupes_interpretes?: string[];
       } = {
         // Pas de `numero` envoyé → le backend l'auto-attribue selon la famille.
-        numero_recueil: isRecueil && draft.numero_recueil
-          ? Number(draft.numero_recueil)
-          : null,
+        numero_recueil: isRecueil && draft.numero_recueil ? Number(draft.numero_recueil) : null,
         famille: draft.famille,
         // evenement vide string → null pour respecter la FK nullable côté DRF.
         evenement: draft.evenement || null,
@@ -620,11 +662,10 @@ export function CantiqueEditPage() {
         est_vedette: draft.est_vedette,
         traductions: [draft.fr].filter((t) => t.titre || t.lyrics.length > 0),
       };
-      return isNew
-        ? cantiquesApi.create(payload)
-        : cantiquesApi.update(slug as string, payload);
+      return isNew ? cantiquesApi.create(payload) : cantiquesApi.update(slug as string, payload);
     },
     onSuccess: (saved) => {
+      draftGuard.markSaved();
       // Pré-remplit le cache pour la nouvelle page d'édition (évite un flash de loading
       // après la redirection, et donne accès à `traductions` / `roles_detail` tout de suite).
       queryClient.setQueryData(["cantique", saved.slug], saved);
@@ -706,41 +747,71 @@ export function CantiqueEditPage() {
     desarchiver.isPending ||
     supprimer.isPending;
 
+  const operationError =
+    save.error ||
+    soumettre.error ||
+    publier.error ||
+    rejeter.error ||
+    archiver.error ||
+    desarchiver.error ||
+    supprimer.error;
+  const locked = cantique?.statut === "publie";
+  const busy = workflowPending || save.isPending;
+  if (!isNew && !query.data)
+    return (
+      <>
+        <Breadcrumb
+          items={[{ label: "Retour à la liste", to: "/cantiques" }, { label: "Fiche" }]}
+        />
+        <PageHead title="Chargement de la fiche" />
+        <PageBody>
+          <QueryFeedback
+            loading={query.isLoading}
+            error={query.error}
+            retry={() => void query.refetch()}
+          />
+        </PageBody>
+      </>
+    );
+
   return (
     <>
       <Breadcrumb
         items={[
           { label: "Cantiques", to: "/cantiques" },
-          { label: isNew ? "Nouveau" : cantique?.traductions?.[0]?.titre ?? "Édition" },
+          { label: isNew ? "Nouveau" : (cantique?.traductions?.[0]?.titre ?? "Édition") },
         ]}
       />
       <PageHead
-        title={isNew ? "Nouveau cantique" : cantique?.traductions?.[0]?.titre ?? "Édition"}
+        title={isNew ? "Nouveau cantique" : (cantique?.traductions?.[0]?.titre ?? "Édition")}
         lede={
           !isNew && cantique
             ? `Référence : ${cantique.numero}`
-            : "La référence sera attribuée automatiquement à l'enregistrement (S001 pour un spécial, A001 pour une adoration, ou le numéro du recueil)."
+            : "Choisissez la famille, les interprètes et le contenu du cantique."
         }
         actions={
           <div className={common.actions}>
             {cantique ? <StatusBadge statut={cantique.statut as StatutWorkflow} /> : null}
-            <Button onClick={handleSubmit} disabled={save.isPending}>
+            <Button variant="primary" onClick={handleSubmit} disabled={busy || locked}>
               {save.isPending ? "Enregistrement…" : "Enregistrer"}
             </Button>
             {!isNew && statut === "brouillon" ? (
               <Button
                 variant="ghost"
                 onClick={() => soumettre.mutate()}
-                disabled={workflowPending}
+                disabled={busy || draftGuard.dirty}
               >
                 Soumettre à validation
               </Button>
             ) : null}
-            {!isNew && (statut === "en_revue" || statut === "rejete") ? (
+            {!isNew && statut === "en_revue" ? (
               <Button
                 variant="success"
-                onClick={() => publier.mutate()}
-                disabled={workflowPending}
+                onClick={() => {
+                  if (window.confirm("Publier le contenu enregistré sur la vitrine ?"))
+                    publier.mutate();
+                }}
+                disabled={busy || draftGuard.dirty || !access.canValidate}
               >
                 {publier.isPending ? "Publication…" : "Publier"}
               </Button>
@@ -749,7 +820,7 @@ export function CantiqueEditPage() {
               <Button
                 variant="dangerOutline"
                 onClick={() => rejeter.mutate()}
-                disabled={workflowPending}
+                disabled={busy || draftGuard.dirty || !access.canValidate}
               >
                 Rejeter
               </Button>
@@ -757,8 +828,11 @@ export function CantiqueEditPage() {
             {!isNew && statut === "publie" ? (
               <Button
                 variant="ghost"
-                onClick={() => archiver.mutate()}
-                disabled={workflowPending}
+                onClick={() => {
+                  if (window.confirm("Archiver ce contenu et le retirer de la vitrine ?"))
+                    archiver.mutate();
+                }}
+                disabled={busy || draftGuard.dirty || !access.canManage}
               >
                 Archiver
               </Button>
@@ -767,7 +841,7 @@ export function CantiqueEditPage() {
               <Button
                 variant="success"
                 onClick={() => desarchiver.mutate()}
-                disabled={workflowPending}
+                disabled={busy || draftGuard.dirty || !access.canValidate}
               >
                 {desarchiver.isPending ? "Désarchivage…" : "Désarchiver"}
               </Button>
@@ -776,15 +850,11 @@ export function CantiqueEditPage() {
               <Button
                 variant="dangerOutline"
                 onClick={() => {
-                  if (
-                    window.confirm(
-                      "Supprimer définitivement ce cantique ? (suppression douce : il sort des listes)",
-                    )
-                  ) {
+                  if (window.confirm("Retirer ce cantique des listes ?")) {
                     supprimer.mutate();
                   }
                 }}
-                disabled={workflowPending}
+                disabled={busy || locked || !access.canManage}
               >
                 Supprimer
               </Button>
@@ -794,276 +864,306 @@ export function CantiqueEditPage() {
       />
       <PageBody>
         <div className={common.editor}>
-          {clientError ? (
-            <div className={common.errorBox} role="alert">
-              <strong>Champ requis manquant :</strong> {clientError}
-            </div>
-          ) : null}
+          {operationError && (
+            <p role="alert" className={common.errorBox}>
+              {operationError.message}
+            </p>
+          )}
+          <p className={common.notice} role="status">
+            {locked
+              ? "Contenu publié : la fiche est en lecture seule. Un validateur peut l’archiver pour permettre sa modification."
+              : draftGuard.dirty
+                ? "Modifications non enregistrées. Enregistrez avant de soumettre ou valider le contenu."
+                : save.isSuccess
+                  ? "Modifications enregistrées."
+                  : "Préparez le contenu et enregistrez-le avant de le soumettre à la validation."}
+          </p>
+          {!isNew &&
+            (!access.validator ? (
+              <p className={common.notice}>La publication est réservée aux validateurs.</p>
+            ) : (
+              <div className={common.notice}>
+                {access.own && (
+                  <p>
+                    La validation doit être effectuée par une autre personne que l’auteur ou le
+                    dernier éditeur.
+                  </p>
+                )}
+                {!access.recent && <IdentityCheck />}
+              </div>
+            ))}
+          <fieldset disabled={locked || busy} className={common.editor}>
+            {clientError ? (
+              <div className={common.errorBox} role="alert">
+                <strong>Champ requis manquant :</strong> {clientError}
+              </div>
+            ) : null}
 
-          {serverError ? (
-            <div className={common.errorBox} role="alert">
-              <strong>Le serveur a refusé l'enregistrement :</strong>{" "}
-              {serverError.message}
-              {nonFieldErrors.length > 0 ? (
-                <ul style={{ margin: "8px 0 0 20px" }}>
-                  {nonFieldErrors.map((m, i) => (
-                    <li key={i}>{m}</li>
-                  ))}
-                </ul>
-              ) : null}
-              {Object.keys(fieldErrors).length > 0 ? (
-                <ul style={{ margin: "8px 0 0 20px" }}>
-                  {Object.entries(fieldErrors).map(([field, msg]) => (
-                    <li key={field}>
-                      <em>{field}</em> : {msg}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ) : null}
+            {serverError ? (
+              <div className={common.errorBox} role="alert">
+                <strong>Le serveur a refusé l'enregistrement :</strong> {serverError.message}
+                {nonFieldErrors.length > 0 ? (
+                  <ul style={{ margin: "8px 0 0 20px" }}>
+                    {nonFieldErrors.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {Object.keys(fieldErrors).length > 0 ? (
+                  <ul style={{ margin: "8px 0 0 20px" }}>
+                    {Object.entries(fieldErrors).map(([field, msg]) => (
+                      <li key={field}>
+                        <em>{field}</em> : {msg}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
 
-          <section className={common.section}>
-            <span className={common.sectionTitle}>§1 Métadonnées</span>
-            <div className={common.formGrid}>
-              <Select
-                label="Famille"
-                required
-                value={draft.famille}
-                onChange={(event) => onFamilleChange(event.target.value)}
-                help={
-                  famillesQuery.isLoading
-                    ? "Chargement…"
-                    : "Recueil, cantique spécial, ou service de chant."
-                }
-              >
-                <option value="">— Choisir —</option>
-                {famillesQuery.data?.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.libelle_fr}
-                  </option>
-                ))}
-              </Select>
-
-              {isRecueil ? (
-                <Input
-                  label="Numéro du recueil"
-                  required
-                  type="number"
-                  min={1}
-                  value={draft.numero_recueil}
-                  onChange={(event) => update("numero_recueil", event.target.value)}
-                  help="Numéro entier du recueil officiel. Sera utilisé comme référence affichée et pour récupérer automatiquement les paroles (à venir)."
-                />
-              ) : (
-                <Input
-                  label="Référence"
-                  value={cantique?.numero ?? ""}
-                  disabled
-                  help={
-                    isNew
-                      ? "Attribuée automatiquement (S001 pour spécial, A001 pour adoration)."
-                      : "Référence générée à la création."
-                  }
-                />
-              )}
-
-              <div className={common.full}>
+            <section className={common.section}>
+              <span className={common.sectionTitle}>Informations générales</span>
+              <div className={common.formGrid}>
                 <Select
-                  label="Événement liturgique (optionnel)"
-                  value={draft.evenement}
-                  onChange={(event) => update("evenement", event.target.value)}
-                  help="Rattache ce cantique à un événement (Veillée, Pâques…). Géré via le bouton « Gérer les événements » sur la page Cantiques."
+                  label="Famille"
+                  required
+                  value={draft.famille}
+                  onChange={(event) => onFamilleChange(event.target.value)}
+                  help={
+                    famillesQuery.isLoading
+                      ? "Chargement…"
+                      : "Recueil, cantique spécial, ou service de chant."
+                  }
                 >
-                  <option value="">— Aucun événement —</option>
-                  {(evenementsQuery.data?.results ?? []).map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.nom_fr}
-                      {ev.date_evenement ? ` (${ev.date_evenement})` : ""}
+                  <option value="">— Choisir —</option>
+                  {famillesQuery.data?.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.libelle_fr}
                     </option>
                   ))}
                 </Select>
-              </div>
 
-              <div className={common.full}>
-                <PersonneMultiSelect
-                  label="Interprètes (personnes individuelles)"
-                  value={draft.interpretes}
-                  onChange={(ids) => update("interpretes", ids)}
-                  placeholder="Tape un nom et choisis dans la liste…"
-                  help="Recherche dans la base des Personnes (musiciens, solistes…). Pour le chœur entier, utilise plutôt le sélecteur de groupes ci-dessous."
-                />
-              </div>
+                {isRecueil ? (
+                  <Input
+                    label="Numéro du recueil"
+                    required
+                    type="number"
+                    min={1}
+                    value={draft.numero_recueil}
+                    onChange={(event) => update("numero_recueil", event.target.value)}
+                    help="Numéro entier du recueil officiel. Sera utilisé comme référence affichée et pour récupérer automatiquement les paroles (à venir)."
+                  />
+                ) : (
+                  <Input
+                    label="Référence"
+                    value={cantique?.numero ?? ""}
+                    disabled
+                    help={
+                      isNew
+                        ? "Attribuée automatiquement (S001 pour spécial, A001 pour adoration)."
+                        : "Référence générée à la création."
+                    }
+                  />
+                )}
 
-              <div className={common.full}>
-                <GroupesMultiSelect
-                  label="Groupes interprètes (ex. « Chœurs »)"
-                  value={draft.groupes_interpretes}
-                  groupes={groupesQuery.data?.results ?? []}
-                  onChange={(ids) => update("groupes_interpretes", ids)}
-                  help="Sélectionne un ou plusieurs groupes. Crée-les via le bouton « Gérer les groupes » sur la page Personnes. Cumulables avec les interprètes individuels."
-                />
-              </div>
+                <div className={common.full}>
+                  <Select
+                    label="Événement liturgique (optionnel)"
+                    value={draft.evenement}
+                    onChange={(event) => update("evenement", event.target.value)}
+                    help="Rattache ce cantique à un événement (Veillée, Pâques…). Géré via le bouton « Gérer les événements » sur la page Cantiques."
+                  >
+                    <option value="">— Aucun événement —</option>
+                    {(evenementsQuery.data?.results ?? []).map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.nom_fr}
+                        {ev.date_evenement ? ` (${ev.date_evenement})` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
 
-              <div className={common.full}>
-                <PersonneSinglePicker
-                  label={isAdoration ? "Chantre (optionnel)" : "Lead vocal (optionnel)"}
-                  value={draft.interprete_lead}
-                  onChange={(id) => update("interprete_lead", id)}
-                  placeholder={
-                    draft.interpretes.length === 0
-                      ? "Sélectionne d'abord des interprètes ci-dessus…"
-                      : isAdoration
-                      ? "Choisir le chantre principal…"
-                      : "Choisir le chanteur principal parmi les interprètes…"
-                  }
-                  // Le lead doit faire partie des interprètes sélectionnés.
-                  restrictToIds={draft.interpretes}
-                  invalidNote="Le lead actuel ne fait pas partie des interprètes sélectionnés."
+                <div className={common.full}>
+                  <PersonneMultiSelect
+                    label="Interprètes (personnes individuelles)"
+                    value={draft.interpretes}
+                    onChange={(ids) => update("interpretes", ids)}
+                    placeholder="Tape un nom et choisis dans la liste…"
+                    help="Recherche dans la base des Personnes (musiciens, solistes…). Pour le chœur entier, utilise plutôt le sélecteur de groupes ci-dessous."
+                  />
+                </div>
+
+                <div className={common.full}>
+                  <GroupesMultiSelect
+                    label="Groupes interprètes (ex. « Chœurs »)"
+                    value={draft.groupes_interpretes}
+                    groupes={groupesQuery.data?.results ?? []}
+                    onChange={(ids) => update("groupes_interpretes", ids)}
+                    help="Sélectionne un ou plusieurs groupes. Crée-les via le bouton « Gérer les groupes » sur la page Personnes. Cumulables avec les interprètes individuels."
+                  />
+                </div>
+
+                <div className={common.full}>
+                  <PersonneSinglePicker
+                    label={isAdoration ? "Chantre (optionnel)" : "Voix principale (facultatif)"}
+                    value={draft.interprete_lead}
+                    onChange={(id) => update("interprete_lead", id)}
+                    placeholder={
+                      draft.interpretes.length === 0
+                        ? "Sélectionne d'abord des interprètes ci-dessus…"
+                        : isAdoration
+                          ? "Choisir le chantre principal…"
+                          : "Choisir le chanteur principal parmi les interprètes…"
+                    }
+                    // Le lead doit faire partie des interprètes sélectionnés.
+                    restrictToIds={draft.interpretes}
+                    invalidNote="La voix principale sélectionnée ne fait pas partie des interprètes sélectionnés."
+                    help={
+                      isAdoration
+                        ? "Le chantre qui conduit le service. Les chœurs accompagnent (présélectionnés par défaut)."
+                        : "Si rempli, cette personne est le chanteur principal ; les autres interprètes et groupes deviennent ses accompagnateurs. Laisse vide si tout le monde chante à parité."
+                    }
+                  />
+                </div>
+
+                {/* Durée et Audio MP3 retirés (non pertinents pour cantiques/services). */}
+
+                <Select
+                  label="Type d'enregistrement"
+                  value={draft.recording_type}
+                  onChange={(event) => update("recording_type", event.target.value)}
                   help={
-                    isAdoration
-                      ? "Le chantre qui conduit le service. Les chœurs accompagnent (présélectionnés par défaut)."
-                      : "Si rempli, cette personne est le chanteur principal ; les autres interprètes et groupes deviennent ses accompagnateurs. Laisse vide si tout le monde chante à parité."
+                    isAdoration ? "Pré-réglé sur « Culte » pour un service de chant." : undefined
                   }
-                />
-              </div>
+                >
+                  <option value="">—</option>
+                  <option value="studio">Studio</option>
+                  <option value="culte">Culte</option>
+                  <option value="live">Live</option>
+                </Select>
 
-              {/* Durée et Audio MP3 retirés (non pertinents pour cantiques/services). */}
-
-              <Select
-                label="Type d'enregistrement"
-                value={draft.recording_type}
-                onChange={(event) => update("recording_type", event.target.value)}
-                help={isAdoration ? "Pré-réglé sur « Culte » pour un service de chant." : undefined}
-              >
-                <option value="">—</option>
-                <option value="studio">Studio</option>
-                <option value="culte">Culte</option>
-                <option value="live">Live</option>
-              </Select>
-
-              {(() => {
-                // Si un événement avec date est rattaché, le cantique hérite
-                // de cette date — on désactive le champ et on affiche la
-                // valeur héritée pour éviter la double saisie / la confusion.
-                const ev = evenementsQuery.data?.results.find((e) => e.id === draft.evenement);
-                const heritedFromEvent = ev?.date_evenement ?? null;
-                if (heritedFromEvent) {
+                {(() => {
+                  // Si un événement avec date est rattaché, le cantique hérite
+                  // de cette date — on désactive le champ et on affiche la
+                  // valeur héritée pour éviter la double saisie / la confusion.
+                  const ev = evenementsQuery.data?.results.find((e) => e.id === draft.evenement);
+                  const heritedFromEvent = ev?.date_evenement ?? null;
+                  if (heritedFromEvent) {
+                    return (
+                      <Input
+                        label="Date d'enregistrement"
+                        type="date"
+                        value={heritedFromEvent}
+                        readOnly
+                        help={`Date héritée de l'événement « ${ev?.nom_fr ?? ""} ». Pour la changer, modifie la date côté événement (« Gérer les événements »).`}
+                      />
+                    );
+                  }
                   return (
                     <Input
                       label="Date d'enregistrement"
                       type="date"
-                      value={heritedFromEvent}
-                      readOnly
-                      help={`Date héritée de l'événement « ${ev?.nom_fr ?? ""} ». Pour la changer, modifie la date côté événement (« Gérer les événements »).`}
+                      value={draft.date_enregistrement}
+                      onChange={(event) => update("date_enregistrement", event.target.value)}
+                      help="Sélectionne la date dans le calendrier. Laisser vide si pas connue. Si tu rattaches un événement avec une date, cette date sera héritée automatiquement."
                     />
                   );
-                }
-                return (
-                  <Input
-                    label="Date d'enregistrement"
-                    type="date"
-                    value={draft.date_enregistrement}
-                    onChange={(event) => update("date_enregistrement", event.target.value)}
-                    help="Sélectionne la date dans le calendrier. Laisser vide si pas connue. Si tu rattaches un événement avec une date, cette date sera héritée automatiquement."
+                })()}
+
+                {/* Audio MP3 retiré (non pertinent). */}
+
+                <div>
+                  <Toggle
+                    checked={draft.est_vedette}
+                    onChange={(next) => update("est_vedette", next)}
+                    label="Cantique vedette (carte 2×2 en avant)"
                   />
-                );
-              })()}
-
-              {/* Audio MP3 retiré (non pertinent). */}
-
-              <div>
-                <Toggle
-                  checked={draft.est_vedette}
-                  onChange={(next) => update("est_vedette", next)}
-                  label="Cantique vedette (carte 2×2 en avant)"
-                />
+                </div>
               </div>
-            </div>
-          </section>
-
-          {/* ── Medley (cantique spécial uniquement) ── */}
-          {isSpecial && (
-            <section className={common.section}>
-              <span className={common.sectionTitle}>§ Medley</span>
-              <p className={common.notice}>
-                Coche « Cantique medley » si la vidéo enchaîne plusieurs sous-cantiques.
-                Tu peux alors saisir chaque passage avec son titre et ses bornes
-                (format MM:SS, ex. 1:30).
-              </p>
-              <Toggle
-                checked={draft.est_medley}
-                onChange={(v) => update("est_medley", v)}
-                label="Cantique medley (plusieurs sous-cantiques dans une seule vidéo)"
-              />
             </section>
-          )}
 
-          {/* ── Chants du service / passages medley ── */}
-          {showPassages && (
+            {/* ── Medley (cantique spécial uniquement) ── */}
+            {isSpecial && (
+              <section className={common.section}>
+                <span className={common.sectionTitle}>§ Medley</span>
+                <p className={common.notice}>
+                  Coche « Cantique medley » si la vidéo enchaîne plusieurs sous-cantiques. Tu peux
+                  alors saisir chaque passage avec son titre et ses bornes (format MM:SS, ex. 1:30).
+                </p>
+                <Toggle
+                  checked={draft.est_medley}
+                  onChange={(v) => update("est_medley", v)}
+                  label="Cantique medley (plusieurs sous-cantiques dans une seule vidéo)"
+                />
+              </section>
+            )}
+
+            {/* ── Chants du service / passages medley ── */}
+            {showPassages && (
+              <section className={common.section}>
+                <span className={common.sectionTitle}>
+                  {isAdoration ? "§ Chants du service" : "§ Passages du medley"}
+                </span>
+                <p className={common.notice}>
+                  {isAdoration
+                    ? "Découpe le service en chants : de telle minute à telle minute, indique le chant interprété (format MM:SS, ex. 0:00 → 4:15). À l'avenir, ces chants pourront être reliés au recueil pour afficher les paroles automatiquement."
+                    : "Saisis chaque sous-cantique du medley avec son titre et ses bornes (format MM:SS)."}
+                </p>
+                <PassagesEditor
+                  passages={draft.passages}
+                  onChange={(passages) => update("passages", passages)}
+                  candidats={passageCandidats}
+                />
+              </section>
+            )}
+
             <section className={common.section}>
               <span className={common.sectionTitle}>
-                {isAdoration ? "§ Chants du service" : "§ Passages du medley"}
+                {showLyrics ? "Contenu — titre, vidéo & paroles" : "Titre & vidéo"}
               </span>
-              <p className={common.notice}>
-                {isAdoration
-                  ? "Découpe le service en chants : de telle minute à telle minute, indique le chant interprété (format MM:SS, ex. 0:00 → 4:15). À l'avenir, ces chants pourront être reliés au recueil pour afficher les paroles automatiquement."
-                  : "Saisis chaque sous-cantique du medley avec son titre et ses bornes (format MM:SS)."}
-              </p>
-              <PassagesEditor
-                passages={draft.passages}
-                onChange={(passages) => update("passages", passages)}
-                candidats={passageCandidats}
-              />
-            </section>
-          )}
-
-          <section className={common.section}>
-            <span className={common.sectionTitle}>
-              {showLyrics ? "§2 Contenu — titre, vidéo & paroles" : "§2 Titre & vidéo"}
-            </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div className={common.formGrid}>
-                <Input
-                  label={isAdoration ? "Titre du service" : "Titre"}
-                  required
-                  value={draft.fr.titre}
-                  onChange={(event) => updateTr({ titre: event.target.value })}
-                />
-                <Input
-                  label="URL YouTube"
-                  type="url"
-                  value={draft.fr.youtube_url}
-                  onChange={(event) => updateTr({ youtube_url: event.target.value })}
-                  help={
-                    isAdoration
-                      ? "Lien vers la vidéo complète du service de chant."
-                      : "Lien vers la vidéo principale du cantique."
-                  }
-                />
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div className={common.formGrid}>
+                  <Input
+                    label={isAdoration ? "Titre du service" : "Titre"}
+                    required
+                    value={draft.fr.titre}
+                    onChange={(event) => updateTr({ titre: event.target.value })}
+                  />
+                  <Input
+                    label="URL YouTube"
+                    type="url"
+                    value={draft.fr.youtube_url}
+                    onChange={(event) => updateTr({ youtube_url: event.target.value })}
+                    help={
+                      isAdoration
+                        ? "Lien vers la vidéo complète du service de chant."
+                        : "Lien vers la vidéo principale du cantique."
+                    }
+                  />
+                </div>
+                {isRecueil ? (
+                  <p className={common.notice}>
+                    💡 Cantique du recueil : les paroles ci-dessous sont éditables. Si tu importes
+                    plus tard un fichier JSON du recueil complet (commande{" "}
+                    <code>python manage.py import_recueil</code>), elles seront pré-remplies
+                    automatiquement pour les nouveaux cantiques.
+                  </p>
+                ) : null}
+                {showLyrics ? (
+                  <LyricsEditor
+                    blocks={draft.fr.lyrics}
+                    onChange={(next: VerseBlock[]) => updateTr({ lyrics: next })}
+                  />
+                ) : (
+                  <p className={common.notice}>
+                    Un service de chant n'a pas de paroles propres : il enchaîne plusieurs chants
+                    (voir « § Chants du service » ci-dessus).
+                  </p>
+                )}
               </div>
-              {isRecueil ? (
-                <p className={common.notice}>
-                  💡 Cantique du recueil : les paroles ci-dessous sont éditables.
-                  Si tu importes plus tard un fichier JSON du recueil complet
-                  (commande <code>python manage.py import_recueil</code>),
-                  elles seront pré-remplies automatiquement pour les nouveaux
-                  cantiques.
-                </p>
-              ) : null}
-              {showLyrics ? (
-                <LyricsEditor
-                  blocks={draft.fr.lyrics}
-                  onChange={(next: VerseBlock[]) => updateTr({ lyrics: next })}
-                />
-              ) : (
-                <p className={common.notice}>
-                  Un service de chant n'a pas de paroles propres : il enchaîne
-                  plusieurs chants (voir « § Chants du service » ci-dessus).
-                </p>
-              )}
-            </div>
-          </section>
+            </section>
+          </fieldset>
+          <SaveFooter onSave={handleSubmit} pending={busy} disabled={locked} />
         </div>
       </PageBody>
     </>

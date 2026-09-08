@@ -1,8 +1,10 @@
-import { ExternalLink, LogOut } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ThemeControl } from "./ThemeControl";
+import { ExternalLink, LogOut, Menu } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import styles from "./Layout.module.css";
 
-export function Header() {
+export function Header({ onMenu }: { onMenu: () => void }) {
   const { user, logout } = useAuth();
   const initiales = user
     ? `${user.first_name?.[0] ?? user.email[0]}${user.last_name?.[0] ?? ""}`.toUpperCase()
@@ -10,6 +12,14 @@ export function Header() {
 
   return (
     <header className={styles.header}>
+      <button
+        type="button"
+        onClick={onMenu}
+        className={`${styles.iconBtn} ${styles.menuButton}`}
+        aria-label="Ouvrir la navigation"
+      >
+        <Menu size={21} />
+      </button>
       <div className={styles.brand}>
         <span className={styles.brandMark} aria-hidden>
           R
@@ -29,12 +39,18 @@ export function Header() {
         >
           <ExternalLink size={16} />
         </a>
+        <ThemeControl />
         {user ? (
           <>
-            <span className={styles.userPill} title={user.email}>
+            <Link
+              to="/reglages"
+              className={styles.userPill}
+              title={user.email}
+              aria-label="Mon compte"
+            >
               <span className={styles.avatar}>{initiales}</span>
               <span>{user.email}</span>
-            </span>
+            </Link>
             <button
               type="button"
               className={styles.iconBtn}

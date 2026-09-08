@@ -1,5 +1,10 @@
+import { IdentityCheck, useWorkflowAccess } from "@/components/forms/WorkflowAccess";
+import { useAuth } from "@/auth/AuthContext";
+import { usePeople, normalizeSearch, personName, roleCodes, roleLabel } from "@/lib/people";
+import { QueryFeedback } from "@/components/ui/QueryFeedback";
+import common from "./common.module.css";
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Users } from "lucide-react";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { PageBody, PageHead } from "@/components/layout/MainLayout";
@@ -13,6 +18,7 @@ import {
   Table,
   TableEmpty,
   TableWrap,
+  TablePager,
   Toggle,
   tableClasses,
 } from "@/components/ui";
@@ -47,24 +53,48 @@ function emptyDraft(): DraftState {
 
 export function PersonnesPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const access = useWorkflowAccess();
+  const canEdit = Boolean(user?.is_superuser || user?.role === "validateur");
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState("");
+  const [activity, setActivity] = useState("active");
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Personne | null>(null);
   const [draft, setDraft] = useState<DraftState>(emptyDraft());
   const [confirmDelete, setConfirmDelete] = useState<Personne | null>(null);
   const [groupesOpen, setGroupesOpen] = useState(false);
 
-  const query = useQuery({
-    queryKey: ["personnes-list"],
-    queryFn: () => personnesApi.list({ page_size: 100 }),
-  });
+  const query = usePeople();
+  const roles = [
+    ...new Map(
+      (query.data ?? []).flatMap((p) =>
+        (p.roles_detail ?? []).filter((r) => r.actif).map((r) => [r.code, r.libelle_fr] as const),
+      ),
+    ).entries(),
+  ].sort((a, b) => a[1].localeCompare(b[1], "fr"));
+  const filtered = (query.data ?? []).filter(
+    (p) =>
+      normalizeSearch(`${personName(p)} ${p.prenom} ${p.nom}`).includes(normalizeSearch(search)) &&
+      (activity === "all" || p.actif === (activity === "active")) &&
+      (!role ||
+        (role === "unclassified" ? roleCodes(p).length === 0 : roleCodes(p).includes(role))),
+  );
+  const pages = Math.max(1, Math.ceil(filtered.length / 25));
+  const currentPage = Math.min(page, pages);
+  const rows = filtered.slice((currentPage - 1) * 25, currentPage * 25);
 
   const save = useMutation({
-    mutationFn: () =>
-      editing
-        ? personnesApi.update(editing.id, draft)
-        : personnesApi.create(draft),
+    mutationFn: () => {
+      if (!draft.prenom.trim() || !draft.nom.trim())
+        throw new Error("Renseignez le prénom et le nom.");
+      return editing ? personnesApi.update(editing.id, draft) : personnesApi.create(draft);
+    },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["personnes-list"] });
+      void queryClient.invalidateQueries({
+        predicate: (q) => String(q.queryKey[0]).startsWith("personne"),
+      });
       void queryClient.invalidateQueries({ queryKey: ["personnes-search"] });
       void queryClient.invalidateQueries({ queryKey: ["personnes-selected"] });
       setOpen(false);
@@ -76,7 +106,9 @@ export function PersonnesPage() {
   const remove = useMutation({
     mutationFn: (id: string) => personnesApi.remove(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["personnes-list"] });
+      void queryClient.invalidateQueries({
+        predicate: (q) => String(q.queryKey[0]).startsWith("personne"),
+      });
       void queryClient.invalidateQueries({ queryKey: ["personnes-search"] });
       void queryClient.invalidateQueries({ queryKey: ["personnes-selected"] });
       setConfirmDelete(null);
@@ -84,21 +116,21 @@ export function PersonnesPage() {
   });
 
   const startCreate = () => {
+    save.reset();
     setEditing(null);
     setDraft(emptyDraft());
     setOpen(true);
   };
 
   const startEdit = (personne: Personne) => {
+    save.reset();
     setEditing(personne);
     setDraft({
       civilite: personne.civilite,
       prenom: personne.prenom,
       nom: personne.nom,
       nom_affichage: personne.nom_affichage,
-      roles:
-        personne.roles ??
-        (personne.roles_detail ?? []).map((r) => r.id),
+      roles: personne.roles ?? (personne.roles_detail ?? []).map((r) => r.id),
       bio_courte_fr: personne.bio_courte_fr,
       bio_courte_en: personne.bio_courte_en,
       actif: personne.actif,
@@ -106,7 +138,7 @@ export function PersonnesPage() {
     setOpen(true);
   };
 
-  const saveError = save.error instanceof HttpError ? save.error : null;
+  const saveError = save.error instanceof Error ? save.error : null;
   const removeError = remove.error instanceof HttpError ? remove.error : null;
 
   return (
@@ -118,6 +150,7 @@ export function PersonnesPage() {
         actions={
           <>
             <Button
+              disabled={!canEdit}
               variant="ghost"
               leftIcon={<Users size={14} />}
               onClick={() => setGroupesOpen(true)}
@@ -125,7 +158,12 @@ export function PersonnesPage() {
             >
               Gérer les groupes
             </Button>
-            <Button variant="primary" leftIcon={<Plus size={14} />} onClick={startCreate}>
+            <Button
+              disabled={!canEdit}
+              variant="primary"
+              leftIcon={<Plus size={14} />}
+              onClick={startCreate}
+            >
               Ajouter une personne
             </Button>
           </>
@@ -134,75 +172,143 @@ export function PersonnesPage() {
 
       {groupesOpen && <GroupesPanel onClose={() => setGroupesOpen(false)} />}
       <PageBody>
-        <TableWrap>
-          {query.data?.results.length ? (
-            <Table>
-              <thead>
-                <tr>
-                  <th>Civilité</th>
-                  <th>Prénom</th>
-                  <th>Nom</th>
-                  <th>Rôles</th>
-                  <th>Actif</th>
-                  <th style={{ width: 50 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {query.data.results.map((p) => (
-                  <tr key={p.id}>
-                    <td onClick={() => startEdit(p)} style={{ cursor: "pointer" }}>
-                      {p.civilite}
-                    </td>
-                    <td
-                      className={tableClasses.title}
-                      onClick={() => startEdit(p)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      {p.prenom}
-                    </td>
-                    <td onClick={() => startEdit(p)} style={{ cursor: "pointer" }}>
-                      {p.nom}
-                    </td>
-                    <td>
-                      {(p.roles_detail ?? []).length > 0 ? (
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {(p.roles_detail ?? []).map((r) => (
-                            <Badge key={r.id}>{r.libelle_fr}</Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <span style={{ color: "#9ca3af", fontStyle: "italic" }}>
-                          aucun
-                        </span>
-                      )}
-                    </td>
-                    <td>{p.actif ? "Oui" : "Non"}</td>
-                    <td>
-                      <Button
-                        variant="dangerOutline"
-                        size="icon"
-                        aria-label={`Supprimer ${p.libelle}`}
-                        onClick={() => setConfirmDelete(p)}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          ) : (
-            <TableEmpty
-              message={query.isLoading ? "Chargement…" : "Aucune personne enregistrée."}
+        <div className={common.filters}>
+          <div className={common.search}>
+            <Input
+              label="Rechercher une personne"
+              placeholder="Nom ou prénom"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
             />
-          )}
-        </TableWrap>
+          </div>
+          <Select
+            label="Rôle"
+            value={role}
+            onChange={(e) => {
+              setRole(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Tous les rôles</option>
+            <option value="unclassified">Sans rôle attribué</option>
+            {roles.map(([code, name]) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            label="Présence dans les sélections"
+            value={activity}
+            onChange={(e) => {
+              setActivity(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="active">Personnes actives</option>
+            <option value="inactive">Personnes inactives</option>
+            <option value="all">Toutes les personnes</option>
+          </Select>
+        </div>
+        <p className={common.notice} style={{ marginBottom: 20 }}>
+          {canEdit
+            ? "Attribuez les rôles correspondant au service de chaque personne. Seules les fiches actives avec le rôle Pasteur ou Prédicateur sont proposées pour un culte. Une vérification récente de votre identité est nécessaire pour enregistrer."
+            : "Vous pouvez consulter le répertoire. Un validateur peut créer ou modifier les fiches et leurs rôles."}
+        </p>
+        <QueryFeedback
+          loading={query.isLoading}
+          error={query.error}
+          retry={() => void query.refetch()}
+        />
+        {query.isSuccess && (
+          <TableWrap>
+            {rows.length ? (
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Personne</th>
+                    <th>Rôles attribués</th>
+                    <th>Disponibilité</th>
+                    <th>Fiche</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((p) => (
+                    <tr key={p.id}>
+                      <td className={tableClasses.title}>{personName(p)}</td>
+                      <td>
+                        <Badge>{roleLabel(p)}</Badge>
+                      </td>
+                      <td>{p.actif ? "Active" : "Inactive"}</td>
+                      <td>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEdit(p)}
+                          aria-label={`${canEdit ? "Modifier" : "Consulter"} ${personName(p)}`}
+                        >
+                          {canEdit ? "Modifier" : "Consulter"}
+                        </Button>
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Supprimer ${personName(p)}`}
+                            onClick={() => {
+                              remove.reset();
+                              setConfirmDelete(p);
+                            }}
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            ) : (
+              <TableEmpty
+                message={
+                  query.data.length
+                    ? "Aucune personne ne correspond aux filtres. Essayez un autre rôle ou affichez toutes les personnes."
+                    : "Le répertoire est vide. Ajoutez une personne et attribuez-lui ses rôles."
+                }
+              />
+            )}
+            <TablePager>
+              <span>
+                {filtered.length} personne{filtered.length > 1 ? "s" : ""} · Page {currentPage} sur{" "}
+                {pages}
+              </span>
+              <Button
+                variant="ghost"
+                disabled={currentPage <= 1}
+                onClick={() => setPage(currentPage - 1)}
+              >
+                Précédente
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={currentPage >= pages}
+                onClick={() => setPage(currentPage + 1)}
+              >
+                Suivante
+              </Button>
+            </TablePager>
+          </TableWrap>
+        )}
       </PageBody>
 
       {/* Modale créer / modifier */}
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          if (!save.isPending) setOpen(false);
+        }}
         title={editing ? "Modifier une personne" : "Nouvelle personne"}
         footer={
           <>
@@ -212,14 +318,16 @@ export function PersonnesPage() {
             <Button
               variant="primary"
               onClick={() => save.mutate()}
-              disabled={save.isPending}
+              disabled={
+                !access.canManage || save.isPending || !draft.prenom.trim() || !draft.nom.trim()
+              }
             >
               {save.isPending ? "Enregistrement…" : "Enregistrer"}
             </Button>
           </>
         }
       >
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <fieldset disabled={!access.canManage || save.isPending} className={common.formGrid}>
           <Select
             label="Civilité"
             value={draft.civilite}
@@ -246,7 +354,7 @@ export function PersonnesPage() {
           />
           <div style={{ gridColumn: "1 / -1" }}>
             <Input
-              label="Nom d'affichage (override)"
+              label="Nom affiché (facultatif)"
               value={draft.nom_affichage}
               onChange={(event) => setDraft({ ...draft, nom_affichage: event.target.value })}
               help="Si vide : calculé depuis civilité + prénom + nom."
@@ -256,7 +364,7 @@ export function PersonnesPage() {
             <RolesMultiSelect
               value={draft.roles}
               onChange={(ids) => setDraft({ ...draft, roles: ids })}
-              help="Sélectionne tous les rôles qui s'appliquent. Bouton « + Nouveau rôle » pour en ajouter un qui n'existe pas encore."
+              help="Plusieurs rôles sont possibles. La civilité ne détermine pas les rôles de la personne."
             />
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
@@ -267,11 +375,11 @@ export function PersonnesPage() {
             />
           </div>
           {saveError ? (
-            <p style={{ gridColumn: "1 / -1", color: "#991b1b", fontSize: 13, margin: 0 }}>
+            <p style={{ gridColumn: "1 / -1", color: "var(--red-700)", fontSize: 13, margin: 0 }}>
               {saveError.message}
             </p>
           ) : null}
-        </div>
+        </fieldset>
       </Modal>
 
       {/* Modale confirmation suppression */}
@@ -287,24 +395,23 @@ export function PersonnesPage() {
             <Button
               variant="danger"
               onClick={() => confirmDelete && remove.mutate(confirmDelete.id)}
-              disabled={remove.isPending}
+              disabled={remove.isPending || !access.canManage}
             >
               {remove.isPending ? "Suppression…" : "Supprimer définitivement"}
             </Button>
           </>
         }
       >
+        {!access.recent && <IdentityCheck />}
         <p style={{ margin: "0 0 8px" }}>
-          Vous êtes sur le point de supprimer{" "}
-          <strong>{confirmDelete?.libelle}</strong>.
+          Vous êtes sur le point de supprimer <strong>{confirmDelete?.libelle}</strong>.
         </p>
-        <p style={{ margin: 0, fontSize: 13, color: "#6b7280" }}>
-          Cette action est <strong>irréversible</strong>. Si cette personne est
-          référencée comme prédicateur ou interprète, la suppression sera
-          refusée par le serveur.
+        <p style={{ margin: 0, fontSize: 13, color: "var(--gray-500)" }}>
+          Cette action est <strong>irréversible</strong>. Si cette personne est référencée comme
+          prédicateur ou interprète, la suppression sera refusée par le serveur.
         </p>
         {removeError ? (
-          <p style={{ color: "#991b1b", fontSize: 13, marginTop: 12 }}>
+          <p style={{ color: "var(--red-700)", fontSize: 13, marginTop: 12 }}>
             {removeError.message}
           </p>
         ) : null}

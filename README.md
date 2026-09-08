@@ -26,3 +26,5 @@ La CI exécute ces contrôles et Gitleaks sur l’historique. Les tests navigate
 Configurer `VITE_PUBLIC_SITE_URL`. L’API et cette interface doivent utiliser des sous-domaines HTTPS du même domaine pour les sessions SameSite=Lax. Le compte initial est créé par le backend, sans inscription publique. Les actions sensibles demandent une vérification récente dans Réglages.
 
 Les instructions complètes Render, comptes, domaines, sauvegardes et retour arrière sont dans `rocsec-back/docs/DEPLOIEMENT.md` (dépôt privé). Les changements passent par une branche puis une PR vers `develop`, et une promotion vers `main` après recette. Le propriétaire effectue les fusions.
+
+Le [guide de l’interface interne](docs/INTERFACE-INTERNE.md) décrit les thèmes, le classement des personnes, la réception des témoignages et le parcours de validation.

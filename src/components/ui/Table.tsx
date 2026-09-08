@@ -14,7 +14,11 @@ export function ToolbarSpacer() {
 }
 
 export function Table({ children }: { children: ReactNode }) {
-  return <table className={styles.table}>{children}</table>;
+  return (
+    <div className={styles.scroll} role="region" aria-label="Tableau défilant" tabIndex={0}>
+      <table className={styles.table}>{children}</table>
+    </div>
+  );
 }
 
 export function TableEmpty({ message }: { message: ReactNode }) {

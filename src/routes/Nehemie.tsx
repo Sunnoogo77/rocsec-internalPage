@@ -1,3 +1,4 @@
+import { QueryFeedback } from "@/components/ui/QueryFeedback";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "@/lib/dayjs";
@@ -44,15 +45,30 @@ export function NehemiePage() {
       <Breadcrumb items={[{ label: "Néhémie" }]} />
       <PageHead
         title="Projet Néhémie"
-        lede="Mettez à jour le montant collecté pour le projet de bâtiment. L'historique est conservé via simple-history."
+        lede="Mettez à jour le montant collecté pour le projet de bâtiment. Consultez les mises à jour précédentes dans l’historique."
       />
       <PageBody>
+        <QueryFeedback
+          loading={query.isLoading}
+          error={query.error}
+          retry={() => void query.refetch()}
+        />
+        {update.error && (
+          <p role="alert" className="errorNotice">
+            {update.error.message}
+          </p>
+        )}
+        {update.isSuccess && (
+          <p role="status" className="securityNotice">
+            Mise à jour enregistrée.
+          </p>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <Card title="Avancement">
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                 gap: 16,
                 marginBottom: 16,
               }}
@@ -83,12 +99,21 @@ export function NehemiePage() {
                 ? `${Math.round(query.data.pourcentage * 10) / 10} % de l'objectif atteint`
                 : "—"}
             </div>
-            <Button variant="primary" onClick={() => update.mutate()}>
+            <Button
+              variant="primary"
+              disabled={!query.isSuccess || update.isPending}
+              onClick={() => update.mutate()}
+            >
               Enregistrer la mise à jour
             </Button>
           </Card>
 
           <Card title="Historique des mises à jour">
+            <QueryFeedback
+              loading={historique.isLoading}
+              error={historique.error}
+              retry={() => void historique.refetch()}
+            />
             {historique.data?.length ? (
               <ul style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {historique.data.map((entry, idx) => (
@@ -100,7 +125,9 @@ export function NehemiePage() {
                 ))}
               </ul>
             ) : (
-              <p style={{ fontSize: 13, color: "var(--gray-500)" }}>Aucun historique.</p>
+              <p style={{ fontSize: 13, color: "var(--gray-500)" }}>
+                {historique.isSuccess ? "Aucun historique." : ""}
+              </p>
             )}
           </Card>
         </div>

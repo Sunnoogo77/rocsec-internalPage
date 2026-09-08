@@ -1,4 +1,5 @@
-import DOMPurify from 'dompurify';
+import { QueryFeedback } from "@/components/ui/QueryFeedback";
+import DOMPurify from "dompurify";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -54,12 +55,17 @@ export function MotDuPasteurPage() {
         title="Mot du pasteur"
         lede="Texte éditorial affiché sur la page d'accueil de la vitrine. Modifications en direct dès l'enregistrement."
         actions={
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button onClick={() => save.mutate()} disabled={save.isPending || !query.isSuccess}>
             {save.isPending ? "Enregistrement…" : "Enregistrer"}
           </Button>
         }
       />
       <PageBody>
+        <QueryFeedback
+          loading={query.isLoading}
+          error={query.error}
+          retry={() => void query.refetch()}
+        />
         <div className={common.editor}>
           {serverError ? (
             <div className={common.errorBox} role="alert">
@@ -74,7 +80,7 @@ export function MotDuPasteurPage() {
           ) : null}
 
           <section className={common.section}>
-            <span className={common.sectionTitle}>§1 Contenu</span>
+            <span className={common.sectionTitle}>Contenu</span>
             <Tabs
               items={[
                 {
@@ -82,10 +88,16 @@ export function MotDuPasteurPage() {
                   label: "Français",
                   content: (
                     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                      <p style={{ fontSize: 13, color: "var(--gray-600, #6b7280)", margin: 0 }}>
-                        Utilise la barre d'outils pour mettre en gras, italique, souligner,
-                        insérer une liste à puces ou un lien. Le rendu côté vitrine reprend
-                        exactement le formatage saisi.
+                      <p
+                        style={{
+                          fontSize: 13,
+                          color: "var(--gray-600, var(--gray-500))",
+                          margin: 0,
+                        }}
+                      >
+                        Utilise la barre d'outils pour mettre en gras, italique, souligner, insérer
+                        une liste à puces ou un lien. Le rendu côté vitrine reprend exactement le
+                        formatage saisi.
                       </p>
                       <RichTextEditor
                         value={draft.texte_html_fr}
@@ -106,7 +118,13 @@ export function MotDuPasteurPage() {
                   label: "English",
                   content: (
                     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                      <p style={{ fontSize: 13, color: "var(--gray-600, #6b7280)", margin: 0 }}>
+                      <p
+                        style={{
+                          fontSize: 13,
+                          color: "var(--gray-600, var(--gray-500))",
+                          margin: 0,
+                        }}
+                      >
                         Optional. If empty, the vitrine displays the French text.
                       </p>
                       <RichTextEditor
@@ -127,15 +145,21 @@ export function MotDuPasteurPage() {
           </section>
 
           <section className={common.section}>
-            <span className={common.sectionTitle}>Aperçu (HTML rendu)</span>
+            <span className={common.sectionTitle}>Aperçu du texte</span>
             <div
               className={common.notice}
-              style={{ fontFamily: "ui-serif, 'Cormorant Garamond', Georgia, serif", fontSize: 17, lineHeight: 1.7 }}
+              style={{
+                fontFamily: "ui-serif, 'Cormorant Garamond', Georgia, serif",
+                fontSize: 17,
+                lineHeight: 1.7,
+              }}
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(draft.texte_html_fr || "<em>(rien à afficher pour le moment)</em>"),
+                __html: DOMPurify.sanitize(
+                  draft.texte_html_fr || "<em>(rien à afficher pour le moment)</em>",
+                ),
               }}
             />
-            <p style={{ fontSize: 13, color: "var(--gray-500, #6b7280)", marginTop: 8 }}>
+            <p style={{ fontSize: 13, color: "var(--gray-500, var(--gray-500))", marginTop: 8 }}>
               — {draft.signature_fr || "(signature vide)"}
             </p>
           </section>

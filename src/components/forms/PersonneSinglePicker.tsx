@@ -1,20 +1,5 @@
-/**
- * Sélecteur autocomplété pour UNE personne (cardinalité 1 ou 0).
- *
- * Variante de `PersonneMultiSelect` : même look (chip + dropdown), mais
- * une seule valeur à la fois + reset facile. Utilisé pour `interprete_lead`
- * sur un cantique (lead vocal).
- *
- * - Si une `restrictToIds` est fournie, on filtre les suggestions à ces UUIDs
- *   (cas du lead vocal : doit être l'un des interprètes déjà sélectionnés).
- */
-
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-
-import { personnesApi } from "@/api";
-import type { Personne } from "@/types";
-
+import { useId, useRef, useState } from "react";
+import { usePeople, normalizeSearch, personName, roleCodes, roleLabel } from "@/lib/people";
 import styles from "./PersonneMultiSelect.module.css";
 
 export interface PersonneSinglePickerProps {
@@ -23,169 +8,166 @@ export interface PersonneSinglePickerProps {
   label?: string;
   placeholder?: string;
   help?: string;
-  /** Si défini, ne propose que des Personnes dont l'UUID est dans cette liste. */
   restrictToIds?: string[];
-  /** Si défini, montre une note quand la valeur courante n'est pas dans
-   *  restrictToIds (ex. lead pas dans les interprètes sélectionnés). */
+  allowedRoles?: string[];
   invalidNote?: string;
 }
-
 export function PersonneSinglePicker({
   value,
   onChange,
-  label,
+  label = "Personne",
   placeholder = "Rechercher un nom…",
   help,
   restrictToIds,
+  allowedRoles,
   invalidNote,
 }: PersonneSinglePickerProps) {
-  const [query, setQuery] = useState("");
+  const directory = usePeople();
+  const id = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
-
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query.trim()), 200);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  // Suggestions : on requête /personnes/?search=.
-  const searchQuery = useQuery({
-    queryKey: ["personnes-search-single", debouncedQuery],
-    queryFn: () => personnesApi.list({ q: debouncedQuery, page_size: 10 }),
-    enabled: open && debouncedQuery.length > 0,
-  });
-
-  // Personne actuellement sélectionnée (pour la chip).
-  const selectedQuery = useQuery({
-    queryKey: ["personne-selected-single", value],
-    queryFn: () => (value ? personnesApi.get(value).catch(() => null) : null),
-    enabled: Boolean(value),
-  });
-
-  const suggestions = useMemo(() => {
-    const list = searchQuery.data?.results ?? [];
-    if (restrictToIds && restrictToIds.length > 0) {
-      const set = new Set(restrictToIds);
-      return list.filter((p) => set.has(p.id));
-    }
-    return list;
-  }, [searchQuery.data, restrictToIds]);
-
-  // Si pas de search actif mais que restrictToIds existe, on liste directement
-  // les personnes autorisées (utile quand l'utilisateur ouvre le picker sans
-  // taper — il voit les interprètes déjà sélectionnés comme choix possibles).
-  const restrictedList = useQuery({
-    queryKey: ["personnes-restricted", (restrictToIds ?? []).slice().sort().join(",")],
-    queryFn: async () => {
-      if (!restrictToIds || restrictToIds.length === 0) return [] as Personne[];
-      const out = await Promise.all(
-        restrictToIds.map((id) => personnesApi.get(id).catch(() => null)),
-      );
-      return out.filter((p): p is Personne => p !== null);
-    },
-    enabled: Boolean(restrictToIds && restrictToIds.length > 0 && open && !debouncedQuery),
-  });
-
-  const handleSelect = (p: Personne) => {
-    onChange(p.id);
-    setQuery("");
+  const [active, setActive] = useState(0);
+  const eligible = (directory.data ?? []).filter(
+    (p) =>
+      p.actif &&
+      (restrictToIds === undefined || restrictToIds.includes(p.id)) &&
+      (!allowedRoles || roleCodes(p).some((r) => allowedRoles.includes(r))),
+  );
+  const suggestions = eligible.filter((p) =>
+    normalizeSearch(`${personName(p)} ${p.prenom} ${p.nom}`).includes(normalizeSearch(search)),
+  );
+  const selected = directory.data?.find((p) => p.id === value);
+  const invalid = value && directory.isSuccess && !eligible.some((p) => p.id === value);
+  const select = (next: string) => {
+    onChange(next);
+    setSearch("");
     setOpen(false);
   };
-  const handleClear = () => {
-    onChange("");
-    setQuery("");
-  };
-
-  const selected = selectedQuery.data ?? null;
-  const valueInRestrict =
-    !restrictToIds || restrictToIds.length === 0 || (value && restrictToIds.includes(value));
-  const showRestrictedList =
-    open && !debouncedQuery && restrictToIds && restrictToIds.length > 0;
-
   return (
     <div className={styles.wrapper}>
-      {label ? <span className={styles.label}>{label}</span> : null}
-      <div className={styles.chips}>
-        {selected ? (
-          <span className={styles.chip}>
-            {selected.libelle}
-            <button
-              type="button"
-              aria-label={`Retirer ${selected.libelle} (lead)`}
-              onClick={handleClear}
-            >
-              ×
-            </button>
+      <label htmlFor={id} className={styles.label}>
+        {label}
+      </label>
+      {value ? (
+        <div className={styles.chips}>
+          <span>
+            {selected
+              ? personName(selected)
+              : directory.isLoading
+                ? "Chargement…"
+                : "Personne sélectionnée indisponible"}
           </span>
-        ) : null}
-        {!selected && (
-          <input
-            type="text"
-            className={styles.input}
-            placeholder={placeholder}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onFocus={() => setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 150)}
-          />
-        )}
-      </div>
-
-      {open && (debouncedQuery.length > 0 || showRestrictedList) ? (
-        <div className={styles.dropdown}>
-          {debouncedQuery.length > 0 ? (
-            searchQuery.isFetching ? (
-              <div className={styles.dropdownEmpty}>Recherche…</div>
-            ) : suggestions.length > 0 ? (
-              suggestions.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={styles.dropdownItem}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => handleSelect(p)}
-                >
-                  <strong>{p.libelle}</strong>
-                  <span className={styles.role}>{p.role_principal}</span>
-                </button>
-              ))
-            ) : (
-              <div className={styles.dropdownEmpty}>
-                {restrictToIds && restrictToIds.length > 0
-                  ? "Aucune personne sélectionnée comme interprète ne correspond à cette recherche."
-                  : `Aucune personne ne correspond à « ${debouncedQuery} ».`}
-              </div>
-            )
-          ) : showRestrictedList ? (
-            (restrictedList.data ?? []).length > 0 ? (
-              (restrictedList.data ?? []).map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={styles.dropdownItem}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => handleSelect(p)}
-                >
-                  <strong>{p.libelle}</strong>
-                  <span className={styles.role}>{p.role_principal}</span>
-                </button>
-              ))
-            ) : (
-              <div className={styles.dropdownEmpty}>
-                Sélectionne d'abord des interprètes ci-dessus.
-              </div>
-            )
-          ) : null}
+          <button
+            type="button"
+            className={styles.clear}
+            onClick={() => {
+              onChange("");
+              requestAnimationFrame(() => input.current?.focus());
+            }}
+            aria-label={`Retirer ${selected ? personName(selected) : "la sélection"}`}
+          >
+            Retirer
+          </button>
         </div>
-      ) : null}
-
-      {!valueInRestrict && invalidNote ? (
-        <span className={styles.help} style={{ color: "#b91c1c" }}>
-          ⚠ {invalidNote}
-        </span>
-      ) : help ? (
-        <span className={styles.help}>{help}</span>
-      ) : null}
+      ) : (
+        <div className={styles.chips}>
+          <input
+            id={id}
+            ref={input}
+            className={styles.input}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={open}
+            aria-controls={`${id}-list`}
+            aria-describedby={`${id}-help`}
+            aria-activedescendant={open && suggestions[active] ? `${id}-${active}` : undefined}
+            autoComplete="off"
+            placeholder={placeholder}
+            value={search}
+            onFocus={() => {
+              setOpen(true);
+              setActive(0);
+            }}
+            onBlur={() => setOpen(false)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setActive(0);
+              setOpen(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setOpen(false);
+              }
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                setOpen(true);
+                const next = Math.max(
+                  0,
+                  Math.min(suggestions.length - 1, active + (e.key === "ArrowDown" ? 1 : -1)),
+                );
+                setActive(next);
+                document.getElementById(`${id}-${next}`)?.scrollIntoView({ block: "nearest" });
+              }
+              if (e.key === "Enter" && open) {
+                e.preventDefault();
+                if (suggestions[active]) select(suggestions[active].id);
+              }
+            }}
+          />
+        </div>
+      )}
+      {open && !value && (
+        <div className={styles.dropdown}>
+          {directory.isLoading ? (
+            <p className={styles.dropdownEmpty}>Chargement du répertoire…</p>
+          ) : directory.isError ? (
+            <p className={styles.dropdownEmpty}>Répertoire indisponible.</p>
+          ) : (
+            <>
+              <ul role="listbox" id={`${id}-list`} aria-label={label}>
+                {suggestions.map((p, index) => (
+                  <li
+                    role="option"
+                    aria-selected={active === index}
+                    id={`${id}-${index}`}
+                    key={p.id}
+                    className={styles.dropdownItem}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => select(p.id)}
+                  >
+                    <strong>{personName(p)}</strong>
+                    <span className={styles.role}>{roleLabel(p)}</span>
+                  </li>
+                ))}
+              </ul>
+              {!suggestions.length && (
+                <p className={styles.dropdownEmpty}>
+                  {restrictToIds?.length === 0
+                    ? "Sélectionnez d’abord les interprètes du cantique."
+                    : "Aucune personne active ne correspond. Vérifiez les rôles dans le répertoire Personnes."}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      <span id={`${id}-help`} className={styles.help}>
+        {invalid ? (
+          <span role="alert" style={{ color: "var(--red-700)" }}>
+            {invalidNote ||
+              "Cette personne ne remplit plus les critères de sélection. Choisissez une autre fiche ou corrigez ses rôles."}
+          </span>
+        ) : (
+          help
+        )}
+      </span>
+      {directory.isError && (
+        <button type="button" className={styles.clear} onClick={() => void directory.refetch()}>
+          Réessayer le chargement du répertoire
+        </button>
+      )}
     </div>
   );
 }

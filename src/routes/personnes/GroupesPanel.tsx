@@ -1,3 +1,4 @@
+import { Modal } from "@/components/ui/Modal";
 /**
  * Modal admin : gestion des groupes de personnes (ex. « Chœurs »).
  *
@@ -6,7 +7,7 @@
  * Personne peut appartenir à plusieurs groupes simultanément (M2M).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button, Card, Input, Textarea, Toggle } from "@/components/ui";
@@ -35,80 +36,14 @@ function emptyDraft(): DraftGroupe {
 }
 
 export function GroupesPanel({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="groupesPanelTitle"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1400,
-        background: "rgba(15, 23, 42, 0.45)",
-        backdropFilter: "blur(6px)",
-        WebkitBackdropFilter: "blur(6px)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "60px 24px 24px",
-        overflowY: "auto",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 820,
-          background: "white",
-          borderRadius: 10,
-          boxShadow: "0 24px 60px rgba(0, 0, 0, 0.22)",
-          padding: 24,
-        }}
-      >
-        <header
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 14,
-            marginBottom: 14,
-            paddingBottom: 14,
-            borderBottom: "1px solid var(--gray-200, #e5e7eb)",
-          }}
-        >
-          <div>
-            <h2 id="groupesPanelTitle" style={{ margin: 0, fontSize: 22, color: "var(--ink-1, #0f1a3a)" }}>
-              Groupes de personnes
-            </h2>
-            <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--gray-600, #4b5563)" }}>
-              Créez des groupes (ex. « Chœurs ») pour les utiliser comme interprète
-              d'un cantique. Un groupe peut être vide à la création — on ajoute les
-              membres au fur et à mesure. Une personne peut appartenir à plusieurs groupes.
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Fermer
-          </Button>
-        </header>
-
-        <GroupesContent />
-      </div>
-    </div>
+    <Modal open wide onClose={onClose} title="Groupes de personnes">
+      <p style={{ marginBottom: 20, color: "var(--gray-600)" }}>
+        Regroupez les personnes qui chantent ou servent ensemble. Les groupes peuvent ensuite être
+        sélectionnés dans un cantique.
+      </p>
+      <GroupesContent />
+    </Modal>
   );
 }
 
@@ -154,7 +89,7 @@ function GroupesContent() {
               style={{
                 background: "rgba(220, 38, 38, 0.08)",
                 border: "1px solid rgba(220, 38, 38, 0.25)",
-                color: "#991b1b",
+                color: "var(--red-700)",
                 borderRadius: 6,
                 padding: "10px 14px",
                 margin: "0 0 14px",
@@ -238,12 +173,7 @@ function GroupesContent() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {listQuery.data!.results.map((g) => (
-              <GroupeRow
-                key={g.id}
-                groupe={g}
-                personnes={personnes}
-                onChange={invalidate}
-              />
+              <GroupeRow key={g.id} groupe={g} personnes={personnes} onChange={invalidate} />
             ))}
           </div>
         )}
@@ -303,7 +233,7 @@ function GroupeRow({
           padding: "12px 14px",
           border: "1px solid var(--gray-200)",
           borderRadius: 6,
-          background: "white",
+          background: "var(--surface)",
         }}
       >
         <div style={{ minWidth: 0, flex: 1 }}>
@@ -464,7 +394,9 @@ function PersonnesMultiPicker({
     const q = search.trim().toLowerCase();
     if (!q) return personnes;
     return personnes.filter((p) =>
-      [p.libelle, p.prenom, p.nom, p.nom_affichage].some((s) => (s ?? "").toLowerCase().includes(q)),
+      [p.libelle, p.prenom, p.nom, p.nom_affichage].some((s) =>
+        (s ?? "").toLowerCase().includes(q),
+      ),
     );
   }, [personnes, search]);
 
@@ -473,7 +405,7 @@ function PersonnesMultiPicker({
       style={{
         border: "1px solid var(--gray-200)",
         borderRadius: 6,
-        background: "white",
+        background: "var(--surface)",
         maxHeight: 240,
         overflowY: "auto",
       }}
@@ -483,7 +415,7 @@ function PersonnesMultiPicker({
           position: "sticky",
           top: 0,
           padding: 8,
-          background: "white",
+          background: "var(--surface)",
           borderBottom: "1px solid var(--gray-150, #eee)",
         }}
       >

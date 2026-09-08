@@ -1,3 +1,4 @@
+import { Modal } from "@/components/ui/Modal";
 /**
  * Modal admin : gestion des événements liturgiques pour les cantiques.
  *
@@ -7,7 +8,7 @@
  * pas ici — on liste juste les compteurs).
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button, Card, Input, Textarea, Toggle } from "@/components/ui";
@@ -36,79 +37,13 @@ function emptyDraft(): DraftEvenement {
 }
 
 export function EvenementsPanel({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="evenementsPanelTitle"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1400,
-        background: "rgba(15, 23, 42, 0.45)",
-        backdropFilter: "blur(6px)",
-        WebkitBackdropFilter: "blur(6px)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "60px 24px 24px",
-        overflowY: "auto",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 760,
-          background: "white",
-          borderRadius: 10,
-          boxShadow: "0 24px 60px rgba(0, 0, 0, 0.22)",
-          padding: 24,
-        }}
-      >
-        <header
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 14,
-            marginBottom: 14,
-            paddingBottom: 14,
-            borderBottom: "1px solid var(--gray-200, #e5e7eb)",
-          }}
-        >
-          <div>
-            <h2 id="evenementsPanelTitle" style={{ margin: 0, fontSize: 22, color: "var(--ink-1, #0f1a3a)" }}>
-              Événements liturgiques (cantiques)
-            </h2>
-            <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--gray-600, #4b5563)" }}>
-              Regroupez des cantiques par occasion (Veillée Nouvel An, Pâques, Pentecôte…).
-              Un cantique appartient à 0 ou 1 événement.
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Fermer
-          </Button>
-        </header>
-
-        <EvenementsContent />
-      </div>
-    </div>
+    <Modal open wide onClose={onClose} title="Événements des cantiques">
+      <p style={{ marginBottom: 20, color: "var(--gray-600)" }}>
+        Classez les cantiques par événement : veillée, Pâques ou autre rendez-vous de l’assemblée.
+      </p>
+      <EvenementsContent />
+    </Modal>
   );
 }
 
@@ -153,7 +88,7 @@ function EvenementsContent() {
               style={{
                 background: "rgba(220, 38, 38, 0.08)",
                 border: "1px solid rgba(220, 38, 38, 0.25)",
-                color: "#991b1b",
+                color: "var(--red-700)",
                 borderRadius: 6,
                 padding: "10px 14px",
                 margin: "0 0 14px",
@@ -291,7 +226,7 @@ function EvenementRow({
           padding: "12px 14px",
           border: "1px solid var(--gray-200)",
           borderRadius: 6,
-          background: "white",
+          background: "var(--surface)",
         }}
       >
         <div style={{ minWidth: 0, flex: 1 }}>

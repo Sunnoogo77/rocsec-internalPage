@@ -1,5 +1,6 @@
-import { useEffect } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import styles from "./Modal.module.css";
 
 interface ModalProps {
@@ -8,35 +9,83 @@ interface ModalProps {
   title: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  wide?: boolean;
 }
-
-export function Modal({ open, onClose, title, children, footer }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, wide }: ModalProps) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
-    if (!open) return;
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+    return () => {
+      if (dialog.open) dialog.close();
     };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div
-      className={styles.backdrop}
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+  }, [open]);
+  return createPortal(
+    <dialog
+      ref={ref}
+      className={`${styles.dialog} ${wide ? styles.wide : ""}`}
+      aria-labelledby={titleId}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const elements = [
+          ...event.currentTarget.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]',
+          ),
+        ].filter((el) => el.getClientRects().length > 0 && !el.closest("fieldset:disabled"));
+        const first = elements[0],
+          last = elements[elements.length - 1];
+        if (!first) {
+          event.preventDefault();
+          return;
+        }
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          const rect = event.currentTarget.getBoundingClientRect();
+          if (
+            event.clientX < rect.left ||
+            event.clientX > rect.right ||
+            event.clientY < rect.top ||
+            event.clientY > rect.bottom
+          )
+            onClose();
+        }
       }}
     >
-      <div role="dialog" aria-modal="true" className={styles.dialog}>
-        <div className={styles.head}>
-          <h2 className={styles.title}>{title}</h2>
-        </div>
-        <div className={styles.body}>{children}</div>
-        {footer ? <div className={styles.footer}>{footer}</div> : null}
-      </div>
-    </div>
+      {open && (
+        <>
+          <div className={styles.head}>
+            <h2 id={titleId} className={styles.title}>
+              {title}
+            </h2>
+            <button
+              type="button"
+              className={styles.close}
+              aria-label="Fermer la fenêtre"
+              onClick={onClose}
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className={styles.body}>{children}</div>
+          {footer && <div className={styles.footer}>{footer}</div>}
+        </>
+      )}
+    </dialog>,
+    document.body,
   );
 }

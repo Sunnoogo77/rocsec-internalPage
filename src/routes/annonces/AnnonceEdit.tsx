@@ -1,18 +1,14 @@
+import { SaveFooter } from "@/components/forms/SaveFooter";
+import { QueryFeedback } from "@/components/ui/QueryFeedback";
+import { IdentityCheck, useWorkflowAccess } from "@/components/forms/WorkflowAccess";
+import { useDraftGuard } from "@/lib/useDraftGuard";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "@/lib/dayjs";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { PageBody, PageHead } from "@/components/layout/MainLayout";
-import {
-  Button,
-  Input,
-  Select,
-  StatusBadge,
-  Tabs,
-  Textarea,
-  Toggle,
-} from "@/components/ui";
+import { Button, Input, Select, StatusBadge, Tabs, Textarea, Toggle } from "@/components/ui";
 import { annoncesApi, mediasApi } from "@/api";
 import type { Annonce, AnnonceTraduction, ContentBlock, StatutWorkflow } from "@/types";
 import common from "../common.module.css";
@@ -45,11 +41,9 @@ function ContentBlocksEditor({
 }) {
   const [uploading, setUploading] = useState(false);
 
-  const addParagraph = () =>
-    onChange([...blocks, { kind: "paragraph", text: "" }]);
+  const addParagraph = () => onChange([...blocks, { kind: "paragraph", text: "" }]);
 
-  const addVideo = () =>
-    onChange([...blocks, { kind: "video", url: "", caption: "" }]);
+  const addVideo = () => onChange([...blocks, { kind: "video", url: "", caption: "" }]);
 
   const addImageFromFile = async (file: File) => {
     setUploading(true);
@@ -83,8 +77,8 @@ function ContentBlocksEditor({
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {blocks.length === 0 ? (
         <p style={{ fontSize: 13, color: "var(--gray-500)", margin: 0 }}>
-          Aucun bloc. Le compte-rendu se rédige après l'événement : ajoute des
-          paragraphes et intercale des photos.
+          Aucun bloc. Le compte-rendu se rédige après l'événement : ajoute des paragraphes et
+          intercale des photos.
         </p>
       ) : (
         blocks.map((b, idx) => (
@@ -111,11 +105,16 @@ function ContentBlocksEditor({
                     b.kind === "image"
                       ? "var(--rst-blue, #1e47a1)"
                       : b.kind === "video"
-                      ? "var(--rst-red, #c8332a)"
-                      : "var(--gray-600)",
+                        ? "var(--rst-red, #c8332a)"
+                        : "var(--gray-600)",
                 }}
               >
-                {b.kind === "image" ? "🖼 Image" : b.kind === "video" ? "▶ Vidéo YouTube" : "¶ Paragraphe"} · #{idx + 1}
+                {b.kind === "image"
+                  ? "🖼 Image"
+                  : b.kind === "video"
+                    ? "▶ Vidéo YouTube"
+                    : "¶ Paragraphe"}{" "}
+                · #{idx + 1}
               </span>
               <div style={{ flex: 1 }} />
               <Button size="sm" variant="ghost" onClick={() => move(idx, -1)} disabled={idx === 0}>
@@ -173,7 +172,15 @@ function ContentBlocksEditor({
                     }}
                   />
                 ) : null}
-                <div style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 220,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
                   <Input
                     label="Texte alternatif (alt)"
                     value={b.alt ?? ""}
@@ -182,7 +189,9 @@ function ContentBlocksEditor({
                   <Select
                     label="Taille d'affichage"
                     value={b.size ?? "wide"}
-                    onChange={(e) => patchAt(idx, { size: e.target.value as "small" | "medium" | "wide" })}
+                    onChange={(e) =>
+                      patchAt(idx, { size: e.target.value as "small" | "medium" | "wide" })
+                    }
                   >
                     <option value="small">Petite</option>
                     <option value="medium">Moyenne</option>
@@ -302,9 +311,7 @@ export function AnnonceEditPage() {
       type: query.data.type,
       sous_type: query.data.sous_type,
       date_debut: dayjs(query.data.date_debut).format("YYYY-MM-DDTHH:mm"),
-      date_fin: query.data.date_fin
-        ? dayjs(query.data.date_fin).format("YYYY-MM-DDTHH:mm")
-        : "",
+      date_fin: query.data.date_fin ? dayjs(query.data.date_fin).format("YYYY-MM-DDTHH:mm") : "",
       lieu: query.data.lieu,
       cta_url: query.data.cta_url,
       est_phare: query.data.est_phare,
@@ -314,6 +321,9 @@ export function AnnonceEditPage() {
     });
     setHydrated(true);
   }
+
+  const access = useWorkflowAccess(query.data);
+  const draftGuard = useDraftGuard(draft, hydrated);
 
   const save = useMutation({
     mutationFn: () => {
@@ -329,11 +339,10 @@ export function AnnonceEditPage() {
         featured_eyebrow: draft.featured_eyebrow,
         traductions: [draft.fr, draft.en].filter((t) => t.titre || t.description),
       } as Partial<Annonce>;
-      return isNew
-        ? annoncesApi.create(payload)
-        : annoncesApi.update(slug as string, payload);
+      return isNew ? annoncesApi.create(payload) : annoncesApi.update(slug as string, payload);
     },
     onSuccess: (saved) => {
+      draftGuard.markSaved();
       queryClient.setQueryData(["annonce", saved.slug], saved);
       void queryClient.invalidateQueries({ queryKey: ["annonces-list"] });
       if (isNew) navigate(`/annonces/${saved.slug}`);
@@ -382,39 +391,85 @@ export function AnnonceEditPage() {
   const wfPending =
     soumettre.isPending || publier.isPending || rejeter.isPending || archiver.isPending;
 
+  const operationError =
+    save.error ||
+    soumettre.error ||
+    publier.error ||
+    rejeter.error ||
+    archiver.error ||
+    afficheUpload.error;
+  const locked = annonce?.statut === "publie";
+  const busy = wfPending || save.isPending;
+  if (!isNew && !query.data)
+    return (
+      <>
+        <Breadcrumb items={[{ label: "Retour à la liste", to: "/annonces" }, { label: "Fiche" }]} />
+        <PageHead title="Chargement de la fiche" />
+        <PageBody>
+          <QueryFeedback
+            loading={query.isLoading}
+            error={query.error}
+            retry={() => void query.refetch()}
+          />
+        </PageBody>
+      </>
+    );
+
   return (
     <>
       <Breadcrumb
         items={[
           { label: "Annonces", to: "/annonces" },
-          { label: isNew ? "Nouvelle" : annonce?.traductions?.[0]?.titre ?? "Édition" },
+          { label: isNew ? "Nouvelle" : (annonce?.traductions?.[0]?.titre ?? "Édition") },
         ]}
       />
       <PageHead
-        title={isNew ? "Nouvelle annonce" : annonce?.traductions?.[0]?.titre ?? "Édition"}
+        title={isNew ? "Nouvelle annonce" : (annonce?.traductions?.[0]?.titre ?? "Édition")}
         actions={
           <div className={common.actions}>
             {annonce ? <StatusBadge statut={annonce.statut as StatutWorkflow} /> : null}
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            <Button variant="primary" onClick={() => save.mutate()} disabled={busy || locked}>
               Enregistrer
             </Button>
             {!isNew && statut === "brouillon" ? (
-              <Button variant="ghost" onClick={() => soumettre.mutate()} disabled={wfPending}>
+              <Button
+                variant="ghost"
+                onClick={() => soumettre.mutate()}
+                disabled={busy || draftGuard.dirty}
+              >
                 Soumettre à validation
               </Button>
             ) : null}
-            {!isNew && (statut === "en_revue" || statut === "rejete") ? (
-              <Button variant="success" onClick={() => publier.mutate()} disabled={wfPending}>
+            {!isNew && statut === "en_revue" ? (
+              <Button
+                variant="success"
+                onClick={() => {
+                  if (window.confirm("Publier le contenu enregistré sur la vitrine ?"))
+                    publier.mutate();
+                }}
+                disabled={busy || draftGuard.dirty || !access.canValidate}
+              >
                 {publier.isPending ? "Publication…" : "Publier"}
               </Button>
             ) : null}
             {!isNew && statut === "en_revue" ? (
-              <Button variant="dangerOutline" onClick={() => rejeter.mutate()} disabled={wfPending}>
+              <Button
+                variant="dangerOutline"
+                onClick={() => rejeter.mutate()}
+                disabled={busy || draftGuard.dirty || !access.canValidate}
+              >
                 Rejeter
               </Button>
             ) : null}
             {!isNew && statut === "publie" ? (
-              <Button variant="ghost" onClick={() => archiver.mutate()} disabled={wfPending}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (window.confirm("Archiver ce contenu et le retirer de la vitrine ?"))
+                    archiver.mutate();
+                }}
+                disabled={busy || draftGuard.dirty || !access.canManage}
+              >
                 Archiver
               </Button>
             ) : null}
@@ -423,214 +478,242 @@ export function AnnonceEditPage() {
       />
       <PageBody>
         <div className={common.editor}>
-          <section className={common.section}>
-            <span className={common.sectionTitle}>§1 Métadonnées</span>
-            <div className={common.formGrid}>
-              <Select
-                label="Type"
-                value={draft.type}
-                onChange={(event) =>
-                  update("type", event.target.value as Annonce["type"])
-                }
-              >
-                <option value="reunion">Réunion</option>
-                <option value="voyage">Voyage</option>
-                <option value="sortie">Sortie</option>
-                <option value="exceptionnelle">Exceptionnelle</option>
-              </Select>
-              <Input
-                label="Sous-type"
-                value={draft.sous_type}
-                onChange={(event) => update("sous_type", event.target.value)}
-              />
-              <Input
-                label="Date de début"
-                type="datetime-local"
-                value={draft.date_debut}
-                onChange={(event) => update("date_debut", event.target.value)}
-              />
-              <Input
-                label="Date de fin (facultative)"
-                type="datetime-local"
-                value={draft.date_fin}
-                onChange={(event) => update("date_fin", event.target.value)}
-              />
-              <Input
-                label="Lieu"
-                value={draft.lieu}
-                onChange={(event) => update("lieu", event.target.value)}
-              />
-              <Input
-                label="CTA URL"
-                type="url"
-                value={draft.cta_url}
-                onChange={(event) => update("cta_url", event.target.value)}
-              />
-              <div>
-                <Toggle
-                  checked={draft.est_phare}
-                  onChange={(next) => update("est_phare", next)}
-                  label="Annonce phare (mise en avant)"
+          {operationError && (
+            <p role="alert" className={common.errorBox}>
+              {operationError.message}
+            </p>
+          )}
+          <p className={common.notice} role="status">
+            {locked
+              ? "Contenu publié : la fiche est en lecture seule. Un validateur peut l’archiver pour permettre sa modification."
+              : draftGuard.dirty
+                ? "Modifications non enregistrées. Enregistrez avant de soumettre ou valider le contenu."
+                : save.isSuccess
+                  ? "Modifications enregistrées."
+                  : "Préparez le contenu et enregistrez-le avant de le soumettre à la validation."}
+          </p>
+          {!isNew &&
+            (!access.validator ? (
+              <p className={common.notice}>La publication est réservée aux validateurs.</p>
+            ) : (
+              <div className={common.notice}>
+                {access.own && (
+                  <p>
+                    La validation doit être effectuée par une autre personne que l’auteur ou le
+                    dernier éditeur.
+                  </p>
+                )}
+                {!access.recent && <IdentityCheck />}
+              </div>
+            ))}
+          <fieldset disabled={locked || busy} className={common.editor}>
+            <section className={common.section}>
+              <span className={common.sectionTitle}>Informations générales</span>
+              <div className={common.formGrid}>
+                <Select
+                  label="Type"
+                  value={draft.type}
+                  onChange={(event) => update("type", event.target.value as Annonce["type"])}
+                >
+                  <option value="reunion">Réunion</option>
+                  <option value="voyage">Voyage</option>
+                  <option value="sortie">Sortie</option>
+                  <option value="exceptionnelle">Exceptionnelle</option>
+                </Select>
+                <Input
+                  label="Sous-type"
+                  value={draft.sous_type}
+                  onChange={(event) => update("sous_type", event.target.value)}
+                />
+                <Input
+                  label="Date de début"
+                  type="datetime-local"
+                  value={draft.date_debut}
+                  onChange={(event) => update("date_debut", event.target.value)}
+                />
+                <Input
+                  label="Date de fin (facultative)"
+                  type="datetime-local"
+                  value={draft.date_fin}
+                  onChange={(event) => update("date_fin", event.target.value)}
+                />
+                <Input
+                  label="Lieu"
+                  value={draft.lieu}
+                  onChange={(event) => update("lieu", event.target.value)}
+                />
+                <Input
+                  label="Lien du bouton (facultatif)"
+                  type="url"
+                  value={draft.cta_url}
+                  onChange={(event) => update("cta_url", event.target.value)}
+                />
+                <div>
+                  <Toggle
+                    checked={draft.est_phare}
+                    onChange={(next) => update("est_phare", next)}
+                    label="Annonce phare (mise en avant)"
+                  />
+                </div>
+                <Input
+                  label="Surtitre de l’annonce mise en avant"
+                  value={draft.featured_eyebrow}
+                  onChange={(event) => update("featured_eyebrow", event.target.value)}
                 />
               </div>
-              <Input
-                label="Featured eyebrow"
-                value={draft.featured_eyebrow}
-                onChange={(event) => update("featured_eyebrow", event.target.value)}
-              />
-            </div>
-          </section>
+            </section>
 
-          <section className={common.section}>
-            <span className={common.sectionTitle}>§2 Contenu rédactionnel</span>
-            <Tabs
-              items={(["fr", "en"] as const).map((langue) => ({
-                value: langue,
-                label: langue === "fr" ? "Français" : "English",
-                content: (
-                  <div className={common.formGrid}>
-                    <Input
-                      label="Titre"
-                      value={draft[langue].titre}
-                      onChange={(event) =>
-                        updateTr(langue, { titre: event.target.value })
-                      }
-                    />
-                    <Input
-                      label="Partie italique"
-                      value={draft[langue].titre_em}
-                      onChange={(event) =>
-                        updateTr(langue, { titre_em: event.target.value })
-                      }
-                    />
-                    <Input
-                      label="Sous-type label"
-                      value={draft[langue].sous_type_label}
-                      onChange={(event) =>
-                        updateTr(langue, { sous_type_label: event.target.value })
-                      }
-                    />
-                    <Input
-                      label="Date display"
-                      value={draft[langue].date_display}
-                      onChange={(event) =>
-                        updateTr(langue, { date_display: event.target.value })
-                      }
-                    />
-                    <div className={common.full}>
-                      <Textarea
-                        label="Description"
-                        rows={5}
-                        value={draft[langue].description}
+            <section className={common.section}>
+              <span className={common.sectionTitle}>Contenu rédactionnel</span>
+              <Tabs
+                readOnly={locked}
+                items={(["fr", "en"] as const).map((langue) => ({
+                  value: langue,
+                  label: langue === "fr" ? "Français" : "English",
+                  content: (
+                    <div className={common.formGrid}>
+                      <Input
+                        label="Titre"
+                        value={draft[langue].titre}
+                        onChange={(event) => updateTr(langue, { titre: event.target.value })}
+                      />
+                      <Input
+                        label="Partie italique"
+                        value={draft[langue].titre_em}
+                        onChange={(event) => updateTr(langue, { titre_em: event.target.value })}
+                      />
+                      <Input
+                        label="Sous-type label"
+                        value={draft[langue].sous_type_label}
                         onChange={(event) =>
-                          updateTr(langue, { description: event.target.value })
+                          updateTr(langue, { sous_type_label: event.target.value })
                         }
                       />
+                      <Input
+                        label="Date display"
+                        value={draft[langue].date_display}
+                        onChange={(event) => updateTr(langue, { date_display: event.target.value })}
+                      />
+                      <div className={common.full}>
+                        <Textarea
+                          label="Description"
+                          rows={5}
+                          value={draft[langue].description}
+                          onChange={(event) =>
+                            updateTr(langue, { description: event.target.value })
+                          }
+                        />
+                      </div>
+                      <Input
+                        label="DL court (ex: VEN. MAI)"
+                        value={draft[langue].dl}
+                        onChange={(event) => updateTr(langue, { dl: event.target.value })}
+                      />
                     </div>
-                    <Input
-                      label="DL court (ex: VEN. MAI)"
-                      value={draft[langue].dl}
-                      onChange={(event) => updateTr(langue, { dl: event.target.value })}
-                    />
-                  </div>
-                ),
-              }))}
-            />
-          </section>
-
-          {!isNew && annonce ? (
-            <section className={common.section}>
-              <span className={common.sectionTitle}>§3 Affiche (événement à venir)</span>
-              <p className={common.notice}>
-                L'affiche officielle s'affiche en grand pour les annonces à venir.
-                Toutes les annonces n'en ont pas — c'est optionnel.
-              </p>
-              <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
-                {annonce.affiche ? (
-                  <img
-                    src={annonce.affiche}
-                    alt="Affiche de l'annonce"
-                    style={{
-                      width: 220,
-                      maxHeight: 300,
-                      objectFit: "contain",
-                      borderRadius: 6,
-                      border: "1px solid var(--gray-200)",
-                      background: "var(--gray-50)",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 220,
-                      height: 280,
-                      display: "grid",
-                      placeItems: "center",
-                      background: "var(--gray-50, #f7f7f7)",
-                      border: "1px dashed var(--gray-300)",
-                      borderRadius: 6,
-                      color: "var(--gray-500)",
-                      fontSize: 13,
-                      textAlign: "center",
-                      padding: 12,
-                    }}
-                  >
-                    Aucune affiche
-                  </div>
-                )}
-                <div>
-                  <input
-                    id="annonce-affiche-input"
-                    type="file"
-                    accept="image/*"
-                    style={HIDDEN_FILE}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = "";
-                      if (f) afficheUpload.mutate(f);
-                    }}
-                  />
-                  <label
-                    htmlFor="annonce-affiche-input"
-                    aria-disabled={afficheUpload.isPending}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      minHeight: 36,
-                      padding: "0 14px",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      borderRadius: 6,
-                      cursor: afficheUpload.isPending ? "not-allowed" : "pointer",
-                      background: afficheUpload.isPending ? "var(--gray-300)" : "var(--rst-blue, #1e47a1)",
-                      color: "white",
-                      userSelect: "none",
-                    }}
-                  >
-                    {afficheUpload.isPending
-                      ? "Upload…"
-                      : annonce.affiche ? "Remplacer l'affiche" : "Téléverser une affiche"}
-                  </label>
-                </div>
-              </div>
+                  ),
+                }))}
+              />
             </section>
-          ) : null}
 
-          <section className={common.section}>
-            <span className={common.sectionTitle}>§4 Compte-rendu (après l'événement)</span>
-            <p className={common.notice}>
-              Une fois l'événement passé, rédige ici le compte-rendu : des
-              paragraphes et des photos intercalées. C'est ce bloc qui s'affiche
-              sur la fiche de l'annonce passée côté vitrine.
-              {isNew
-                ? " Tu pourras ajouter des images après avoir créé l'annonce."
-                : ""}
-            </p>
-            <ContentBlocksEditor
-              blocks={draft.fr.content_blocks}
-              onChange={(next) => updateTr("fr", { content_blocks: next })}
-            />
-          </section>
+            {!isNew && annonce ? (
+              <section className={common.section}>
+                <span className={common.sectionTitle}>Affiche (événement à venir)</span>
+                <p className={common.notice}>
+                  L'affiche officielle s'affiche en grand pour les annonces à venir. Toutes les
+                  annonces n'en ont pas — c'est optionnel.
+                </p>
+                <div
+                  style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}
+                >
+                  {annonce.affiche ? (
+                    <img
+                      src={annonce.affiche}
+                      alt="Affiche de l'annonce"
+                      style={{
+                        width: 220,
+                        maxHeight: 300,
+                        objectFit: "contain",
+                        borderRadius: 6,
+                        border: "1px solid var(--gray-200)",
+                        background: "var(--gray-50)",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 220,
+                        height: 280,
+                        display: "grid",
+                        placeItems: "center",
+                        background: "var(--gray-50, #f7f7f7)",
+                        border: "1px dashed var(--gray-300)",
+                        borderRadius: 6,
+                        color: "var(--gray-500)",
+                        fontSize: 13,
+                        textAlign: "center",
+                        padding: 12,
+                      }}
+                    >
+                      Aucune affiche
+                    </div>
+                  )}
+                  <div>
+                    <input
+                      id="annonce-affiche-input"
+                      type="file"
+                      accept="image/*"
+                      style={HIDDEN_FILE}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (f) afficheUpload.mutate(f);
+                      }}
+                    />
+                    <label
+                      htmlFor="annonce-affiche-input"
+                      aria-disabled={afficheUpload.isPending}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        minHeight: 36,
+                        padding: "0 14px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        cursor: afficheUpload.isPending ? "not-allowed" : "pointer",
+                        background: afficheUpload.isPending
+                          ? "var(--gray-300)"
+                          : "var(--rst-blue, #1e47a1)",
+                        color: "white",
+                        userSelect: "none",
+                      }}
+                    >
+                      {afficheUpload.isPending
+                        ? "Upload…"
+                        : annonce.affiche
+                          ? "Remplacer l'affiche"
+                          : "Téléverser une affiche"}
+                    </label>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
+            <section className={common.section}>
+              <span className={common.sectionTitle}>Compte-rendu (après l'événement)</span>
+              <p className={common.notice}>
+                Une fois l'événement passé, rédige ici le compte-rendu : des paragraphes et des
+                photos intercalées. C'est ce bloc qui s'affiche sur la fiche de l'annonce passée
+                côté vitrine.
+                {isNew ? " Tu pourras ajouter des images après avoir créé l'annonce." : ""}
+              </p>
+              <ContentBlocksEditor
+                blocks={draft.fr.content_blocks}
+                onChange={(next) => updateTr("fr", { content_blocks: next })}
+              />
+            </section>
+          </fieldset>
+          <SaveFooter onSave={() => save.mutate()} pending={busy} disabled={locked} />
         </div>
       </PageBody>
     </>
