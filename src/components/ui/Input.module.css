@@ -1,0 +1,97 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.req {
+  color: var(--red-500);
+  margin-left: 2px;
+}
+
+.help {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.error {
+  font-size: 12px;
+  color: var(--red-600);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.input,
+.textarea,
+.select {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--gray-900);
+  background: var(--surface);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  height: 42px;
+  width: 100%;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+
+.textarea {
+  height: auto;
+  min-height: 80px;
+  padding: 10px 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.input:hover,
+.textarea:hover,
+.select:hover {
+  border-color: var(--gray-400);
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--blue-500);
+  box-shadow: var(--ring);
+}
+
+.invalid {
+  border-color: var(--red-500);
+}
+
+.invalid:focus {
+  box-shadow: var(--ring-error);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--gray-400);
+}
+
+.input:disabled,
+.textarea:disabled,
+.select:disabled {
+  background: var(--gray-50);
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}

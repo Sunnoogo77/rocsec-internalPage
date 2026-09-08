@@ -1,0 +1,182 @@
+.section {
+  margin-bottom: 32px;
+}
+.section h2,
+.week h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 16px;
+}
+.tasks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.task {
+  border: 1px solid var(--gray-200);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.taskTop {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: space-between;
+  width: 100%;
+}
+.task h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.count {
+  font-size: 28px;
+  line-height: 1.2;
+  color: var(--blue-700);
+  font-variant-numeric: tabular-nums;
+}
+.task p,
+.week p {
+  color: var(--gray-600);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.task a,
+.week a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: auto;
+}
+.shortcuts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.shortcuts a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 16px;
+  background: var(--surface);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  color: var(--gray-800);
+  font-size: 13px;
+}
+.shortcuts a:hover {
+  border-color: var(--blue-500);
+  text-decoration: none;
+}
+.shortcuts a > svg:first-child {
+  color: var(--blue-600);
+  flex-shrink: 0;
+}
+.shortcuts a > svg:last-child {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.lower {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+  gap: 28px;
+}
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sectionHead a {
+  font-size: 12px;
+}
+.recent {
+  background: var(--surface);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+}
+.recentRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 20px;
+  border-bottom: 1px solid var(--gray-200);
+}
+.recentRow:last-child {
+  border: 0;
+}
+.recentRow a {
+  font-weight: 500;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+.recentRow p {
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-top: 5px;
+}
+.week {
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  border-radius: 8px;
+  padding: 24px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.week > svg {
+  color: var(--blue-600);
+}
+.week h2 {
+  margin: 0;
+}
+.week hr {
+  border: 0;
+  border-top: 1px solid var(--blue-200);
+  margin: 8px 0;
+}
+.empty {
+  padding: 24px;
+  color: var(--gray-500);
+}
+.retry {
+  border: 0;
+  background: transparent;
+  color: var(--red-700);
+  font-size: 12px;
+  text-align: left;
+}
+@media (max-width: 1200px) {
+  .shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tasks {
+    gap: 12px;
+  }
+  .task {
+    padding: 18px;
+  }
+}
+@media (max-width: 900px) {
+  .tasks,
+  .lower {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .shortcuts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .recentRow {
+    align-items: flex-start;
+  }
+}
