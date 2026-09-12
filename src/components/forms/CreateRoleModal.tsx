@@ -8,7 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Button, Input, Modal } from "@/components/ui";
 import { rolesPersonneApi } from "@/api";
-import { HttpError } from "@/api/client";
+import { ActionError } from "@/components/ui/ActionError";
 import type { RolePersonne } from "@/types";
 
 export interface CreateRoleModalProps {
@@ -45,7 +45,6 @@ export function CreateRoleModal({ onClose, onCreated }: CreateRoleModalProps) {
     onSuccess: (r) => onCreated(r),
   });
 
-  const serverError = mutation.error instanceof HttpError ? mutation.error : null;
   const canSubmit = libelleFr.trim().length > 0 && code.length > 0 && !mutation.isPending;
 
   return (
@@ -84,18 +83,7 @@ export function CreateRoleModal({ onClose, onCreated }: CreateRoleModalProps) {
           onChange={(event) => setCodeOverride(event.target.value)}
           help="Généré automatiquement depuis le libellé. Modifiable si besoin (doit rester court et sans accent)."
         />
-        {serverError ? (
-          <p style={{ color: "var(--red-700)", fontSize: 13, margin: 0 }}>
-            {serverError.message}
-            {serverError.details && typeof serverError.details === "object"
-              ? Object.entries(serverError.details).map(([k, v]) => (
-                  <span key={k} style={{ display: "block", marginTop: 4 }}>
-                    <em>{k}</em> : {Array.isArray(v) ? v.join(" ; ") : String(v)}
-                  </span>
-                ))
-              : null}
-          </p>
-        ) : null}
+        <ActionError error={mutation.error} title="Le rôle n’a pas été créé." />
       </div>
     </Modal>
   );

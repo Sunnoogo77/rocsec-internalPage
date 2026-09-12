@@ -1,3 +1,4 @@
+import { ActionError } from "@/components/ui/ActionError";
 import { SaveFooter } from "@/components/forms/SaveFooter";
 import { QueryFeedback } from "@/components/ui/QueryFeedback";
 import { IdentityCheck, useWorkflowAccess } from "@/components/forms/WorkflowAccess";
@@ -282,11 +283,7 @@ export function TemoignageEditPage() {
                   : "Préparez le texte, enregistrez vos modifications, puis passez à la relecture."}
             </p>
           )}
-          {actionError && (
-            <p role="alert" className={common.errorBox}>
-              {actionError.message}
-            </p>
-          )}
+          <ActionError error={actionError} />
           {t?.motif_rejet && (
             <p className={common.notice}>
               <strong>Motif de la décision :</strong> {t.motif_rejet}
@@ -616,7 +613,7 @@ export function TemoignageEditPage() {
               )}
               {!access.validator ? (
                 <p>La publication et le refus sont réservés aux validateurs.</p>
-              ) : access.own ? (
+              ) : access.requiresOtherReviewer ? (
                 <p>
                   Un autre validateur doit relire ce témoignage : vous en êtes l’auteur ou la
                   dernière personne à l’avoir modifié.
@@ -696,11 +693,7 @@ export function TemoignageEditPage() {
                 onChange={(e) => setMotifRejet(e.target.value)}
               />
             )}
-            {actionError && (
-              <p role="alert" className={common.errorBox}>
-                {actionError.message}
-              </p>
-            )}
+            <ActionError error={actionError} />
           </Modal>
           <SaveFooter onSave={() => saveMutation.mutate()} pending={busy} disabled={published} />
         </div>

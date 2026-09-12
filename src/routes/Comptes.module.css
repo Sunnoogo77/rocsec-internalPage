@@ -1,0 +1,34 @@
+.receipt {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.receipt p {
+  margin: 0;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.receipt > button {
+  justify-self: start;
+}
+.receiptField {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.receiptField > button {
+  justify-self: start;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.receiptHint {
+  color: var(--gray-600);
+  font-size: 13px;
+}
+.copyStatus {
+  color: var(--blue-700);
+  font-weight: 600;
+}

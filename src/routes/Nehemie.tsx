@@ -1,3 +1,4 @@
+import { ActionError } from "@/components/ui/ActionError";
 import { QueryFeedback } from "@/components/ui/QueryFeedback";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -53,11 +54,7 @@ export function NehemiePage() {
           error={query.error}
           retry={() => void query.refetch()}
         />
-        {update.error && (
-          <p role="alert" className="errorNotice">
-            {update.error.message}
-          </p>
-        )}
+        <ActionError error={update.error} />
         {update.isSuccess && (
           <p role="status" className="securityNotice">
             Mise à jour enregistrée.

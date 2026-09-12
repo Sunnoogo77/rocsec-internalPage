@@ -16,7 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { PageBody, PageHead } from "@/components/layout/MainLayout";
 import { Button, Card, Input, Textarea, Toggle } from "@/components/ui";
-import { HttpError } from "@/api/client";
+import { ActionError } from "@/components/ui/ActionError";
 import { seriesApi } from "@/api";
 import type { Serie } from "@/types";
 
@@ -60,32 +60,22 @@ function SeriesContent() {
     },
   });
 
-  const createError = createMutation.error instanceof HttpError ? createMutation.error : null;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {!creating ? (
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Button onClick={() => setCreating(true)}>+ Nouvelle série</Button>
+          <Button
+            onClick={() => {
+              createMutation.reset();
+              setCreating(true);
+            }}
+          >
+            + Nouvelle série
+          </Button>
         </div>
       ) : (
         <Card title="Nouvelle série">
-          {createError && (
-            <div
-              role="alert"
-              style={{
-                background: "rgba(220, 38, 38, 0.08)",
-                border: "1px solid rgba(220, 38, 38, 0.25)",
-                color: "var(--red-700)",
-                borderRadius: 6,
-                padding: "10px 14px",
-                margin: "0 0 14px",
-                fontSize: 13,
-              }}
-            >
-              <strong>Création refusée :</strong> {createError.message}
-            </div>
-          )}
+          <ActionError error={createMutation.error} title="La série n’a pas été créée." />
           <div
             style={{
               display: "grid",
@@ -129,6 +119,7 @@ function SeriesContent() {
               onClick={() => {
                 setCreating(false);
                 setDraft(emptyDraft());
+                createMutation.reset();
               }}
             >
               Annuler
@@ -217,86 +208,97 @@ function SerieRow({ serie, onChange }: { serie: Serie; onChange: () => void }) {
 
   if (!editing) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 14,
-          padding: "12px 14px",
-          border: "1px solid var(--gray-200)",
-          borderRadius: 6,
-          background: "var(--surface)",
-        }}
-      >
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div
-            style={{
-              fontFamily: "var(--f-serif, Georgia, serif)",
-              fontSize: 16,
-              fontWeight: 500,
-              color: "var(--ink-1, #0f1a3a)",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {serie.titre_fr}
-            {serie.close && (
-              <span
-                style={{
-                  marginLeft: 10,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: 0.5,
-                  textTransform: "uppercase",
-                  background: "var(--gray-100, #f3f4f6)",
-                  color: "var(--gray-600, #4b5563)",
-                  padding: "2px 8px",
-                  borderRadius: 999,
-                }}
-              >
-                Terminée
-              </span>
-            )}
-          </div>
-          {serie.description_fr && (
+      <>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+            padding: "12px 14px",
+            border: "1px solid var(--gray-200)",
+            borderRadius: 6,
+            background: "var(--surface)",
+          }}
+        >
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div
               style={{
-                fontSize: 13,
-                color: "var(--gray-600, #4b5563)",
-                marginTop: 2,
+                fontFamily: "var(--f-serif, Georgia, serif)",
+                fontSize: 16,
+                fontWeight: 500,
+                color: "var(--ink-1, #0f1a3a)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
               }}
             >
-              {serie.description_fr}
+              {serie.titre_fr}
+              {serie.close && (
+                <span
+                  style={{
+                    marginLeft: 10,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                    background: "var(--gray-100, #f3f4f6)",
+                    color: "var(--gray-600, #4b5563)",
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                  }}
+                >
+                  Terminée
+                </span>
+              )}
             </div>
-          )}
+            {serie.description_fr && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--gray-600, #4b5563)",
+                  marginTop: 2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {serie.description_fr}
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                remove.reset();
+                update.reset();
+                setEditing(true);
+              }}
+            >
+              Éditer
+            </Button>
+            <Button
+              size="sm"
+              variant="dangerOutline"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Supprimer la série « ${serie.titre_fr} » ? Les sermons associés perdront leur référence.`,
+                  )
+                ) {
+                  remove.mutate();
+                }
+              }}
+              disabled={remove.isPending}
+            >
+              Supprimer
+            </Button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-            Éditer
-          </Button>
-          <Button
-            size="sm"
-            variant="dangerOutline"
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Supprimer la série « ${serie.titre_fr} » ? Les sermons associés perdront leur référence.`,
-                )
-              ) {
-                remove.mutate();
-              }
-            }}
-            disabled={remove.isPending}
-          >
-            Supprimer
-          </Button>
-        </div>
-      </div>
+        <ActionError error={remove.error} title="La série n’a pas été supprimée." />
+      </>
     );
   }
 
@@ -341,6 +343,7 @@ function SerieRow({ serie, onChange }: { serie: Serie; onChange: () => void }) {
         onChange={(v) => setDraft((p) => ({ ...p, close: v }))}
         label="Série terminée"
       />
+      <ActionError error={update.error} title="La série n’a pas été modifiée." />
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <Button
           variant="ghost"

@@ -24,7 +24,7 @@ import {
 } from "@/components/ui";
 import { RolesMultiSelect } from "@/components/forms/RolesMultiSelect";
 import { personnesApi } from "@/api";
-import { HttpError } from "@/api/client";
+import { ActionError } from "@/components/ui/ActionError";
 import type { Personne } from "@/types";
 
 interface DraftState {
@@ -65,6 +65,7 @@ export function PersonnesPage() {
   const [draft, setDraft] = useState<DraftState>(emptyDraft());
   const [confirmDelete, setConfirmDelete] = useState<Personne | null>(null);
   const [groupesOpen, setGroupesOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const query = usePeople();
   const roles = [
@@ -92,6 +93,11 @@ export function PersonnesPage() {
       return editing ? personnesApi.update(editing.id, draft) : personnesApi.create(draft);
     },
     onSuccess: () => {
+      setSuccessMessage(
+        editing
+          ? "La fiche de la personne a été mise à jour."
+          : "La personne a été ajoutée au répertoire.",
+      );
       void queryClient.invalidateQueries({
         predicate: (q) => String(q.queryKey[0]).startsWith("personne"),
       });
@@ -106,6 +112,7 @@ export function PersonnesPage() {
   const remove = useMutation({
     mutationFn: (id: string) => personnesApi.remove(id),
     onSuccess: () => {
+      setSuccessMessage("La personne a été supprimée du répertoire.");
       void queryClient.invalidateQueries({
         predicate: (q) => String(q.queryKey[0]).startsWith("personne"),
       });
@@ -116,6 +123,7 @@ export function PersonnesPage() {
   });
 
   const startCreate = () => {
+    setSuccessMessage("");
     save.reset();
     setEditing(null);
     setDraft(emptyDraft());
@@ -123,6 +131,7 @@ export function PersonnesPage() {
   };
 
   const startEdit = (personne: Personne) => {
+    setSuccessMessage("");
     save.reset();
     setEditing(personne);
     setDraft({
@@ -137,9 +146,6 @@ export function PersonnesPage() {
     });
     setOpen(true);
   };
-
-  const saveError = save.error instanceof Error ? save.error : null;
-  const removeError = remove.error instanceof HttpError ? remove.error : null;
 
   return (
     <>
@@ -172,6 +178,11 @@ export function PersonnesPage() {
 
       {groupesOpen && <GroupesPanel onClose={() => setGroupesOpen(false)} />}
       <PageBody>
+        {successMessage && (
+          <p role="status" className="securityNotice">
+            {successMessage}
+          </p>
+        )}
         <div className={common.filters}>
           <div className={common.search}>
             <Input
@@ -312,7 +323,7 @@ export function PersonnesPage() {
         title={editing ? "Modifier une personne" : "Nouvelle personne"}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
+            <Button variant="ghost" onClick={() => setOpen(false)} disabled={save.isPending}>
               Annuler
             </Button>
             <Button
@@ -327,7 +338,9 @@ export function PersonnesPage() {
           </>
         }
       >
-        <fieldset disabled={!access.canManage || save.isPending} className={common.formGrid}>
+        {canEdit && !access.recent && <IdentityCheck />}
+        <ActionError error={save.error} title="La fiche n’a pas été enregistrée" />
+        <fieldset disabled={!canEdit || save.isPending} className={common.formGrid}>
           <Select
             label="Civilité"
             value={draft.civilite}
@@ -374,22 +387,23 @@ export function PersonnesPage() {
               label="Personne active"
             />
           </div>
-          {saveError ? (
-            <p style={{ gridColumn: "1 / -1", color: "var(--red-700)", fontSize: 13, margin: 0 }}>
-              {saveError.message}
-            </p>
-          ) : null}
         </fieldset>
       </Modal>
 
       {/* Modale confirmation suppression */}
       <Modal
         open={confirmDelete !== null}
-        onClose={() => setConfirmDelete(null)}
+        onClose={() => {
+          if (!remove.isPending) setConfirmDelete(null);
+        }}
         title="Supprimer cette personne ?"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirmDelete(null)}>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmDelete(null)}
+              disabled={remove.isPending}
+            >
               Annuler
             </Button>
             <Button
@@ -410,11 +424,7 @@ export function PersonnesPage() {
           Cette action est <strong>irréversible</strong>. Si cette personne est référencée comme
           prédicateur ou interprète, la suppression sera refusée par le serveur.
         </p>
-        {removeError ? (
-          <p style={{ color: "var(--red-700)", fontSize: 13, marginTop: 12 }}>
-            {removeError.message}
-          </p>
-        ) : null}
+        <ActionError error={remove.error} title="La personne n’a pas été supprimée" />
       </Modal>
     </>
   );

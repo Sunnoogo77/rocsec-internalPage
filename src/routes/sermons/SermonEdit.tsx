@@ -1,3 +1,4 @@
+import { ActionError } from "@/components/ui/ActionError";
 import { SaveFooter } from "@/components/forms/SaveFooter";
 import { QueryFeedback } from "@/components/ui/QueryFeedback";
 import { IdentityCheck, useWorkflowAccess } from "@/components/forms/WorkflowAccess";
@@ -300,11 +301,7 @@ export function SermonEditPage() {
 
       <PageBody>
         <div className={common.editor}>
-          {operationError && (
-            <p role="alert" className={common.errorBox}>
-              {operationError.message}
-            </p>
-          )}
+          <ActionError error={operationError} />
           <p className={common.notice} role="status">
             {locked
               ? "Contenu publié : la fiche est en lecture seule. Un validateur peut l’archiver pour permettre sa modification."
@@ -319,7 +316,7 @@ export function SermonEditPage() {
               <p className={common.notice}>La publication est réservée aux validateurs.</p>
             ) : (
               <div className={common.notice}>
-                {access.own && (
+                {access.requiresOtherReviewer && (
                   <p>
                     La validation doit être effectuée par une autre personne que l’auteur ou le
                     dernier éditeur.

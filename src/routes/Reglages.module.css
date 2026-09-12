@@ -1,0 +1,144 @@
+.workspace {
+  display: grid;
+  gap: 24px;
+  max-width: 1180px;
+}
+.security {
+  background: var(--surface);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 28px;
+  scroll-margin-top: 96px;
+}
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.sectionHead > div {
+  flex: 1 1 320px;
+}
+.sectionHead h2 {
+  color: var(--gray-900);
+  font-size: 22px;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+.sectionHead p {
+  color: var(--gray-600);
+  max-width: 720px;
+  line-height: 1.65;
+}
+.enabled,
+.pending {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-weight: 600;
+  font-size: 12px;
+}
+.enabled {
+  background: var(--green-50);
+  color: var(--green-700);
+}
+.pending {
+  background: var(--amber-50);
+  color: var(--amber-700);
+}
+.steps {
+  display: grid;
+  gap: 24px;
+  list-style: decimal;
+  padding-left: 24px;
+}
+.steps li {
+  padding-left: 6px;
+}
+.steps li::marker {
+  color: var(--blue-700);
+  font-weight: 700;
+}
+.steps strong {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--gray-900);
+}
+.qr {
+  margin-top: 16px;
+  width: fit-content;
+  max-width: 100%;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 8px;
+}
+.qr svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.manual,
+.disable {
+  margin-top: 16px;
+  border-top: 1px solid var(--gray-200);
+  padding-top: 16px;
+}
+.manual summary,
+.disable summary {
+  cursor: pointer;
+  color: var(--blue-700);
+  font-weight: 600;
+  padding: 4px 0;
+}
+.manual p,
+.disable p {
+  margin: 12px 0;
+}
+.manual code {
+  margin: 12px 0;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.success {
+  padding: 20px;
+  border: 1px solid var(--green-100);
+  border-radius: 8px;
+  color: var(--green-700);
+  background: var(--green-50);
+}
+.success p {
+  color: inherit;
+  margin: 6px 0 14px;
+}
+.returnLink {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 10px 14px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--on-accent);
+  background: var(--accent);
+  font-weight: 600;
+}
+.returnLink:hover {
+  text-decoration: none;
+  background: var(--accent-hover);
+}
+@media (max-width: 640px) {
+  .security {
+    padding: 20px 16px;
+  }
+  .sectionHead h2 {
+    font-size: 20px;
+  }
+  .qr {
+    padding: 2px;
+  }
+}

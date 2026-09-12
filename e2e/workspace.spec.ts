@@ -96,9 +96,10 @@ test("connexion avec code TOTP et CSRF puis accès aux réglages", async ({ page
   await page.getByRole("textbox", { name: "Nom d’utilisateur", exact: true }).fill(user.username);
   await page.getByLabel(/^Mot de passe/).fill("Synthetic-password.123!");
   await page.getByRole("button", { name: "Se connecter" }).click();
-  await page.getByLabel("Code TOTP").fill("123456");
+  await page.getByRole("textbox", { name: "Code de vérification", exact: true }).fill("123456");
   await page.getByRole("button", { name: "Se connecter" }).click();
   await expect(page.getByRole("heading", { name: "Mon compte", exact: true })).toBeVisible();
+  await page.getByText("Désactiver la double authentification", { exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Désactiver et terminer mes sessions" }),
   ).toBeDisabled();
@@ -138,7 +139,7 @@ test("la connexion occupe l’écran et les portraits alternent seuls toutes les
   await expect(page.getByLabel("Nom d’utilisateur")).toHaveAttribute("autocomplete", "username");
   await expect(page.getByLabel("Nom d’utilisateur")).not.toHaveAttribute("placeholder");
   await expect(page.locator('input[type="email"]')).toHaveCount(0);
-  await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/logo-rst-white.svg");
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/favicon-rst.svg");
   await expect(page.getByRole("img", { name: "Logo Roc Séculaire Tabernacle" })).toBeVisible();
   await expect(jesus).toHaveAttribute("src", "/images/jesus-login.png");
   const portraits = page.getByRole("region", { name: "Portraits de l’assemblée" });
@@ -221,7 +222,7 @@ test("un administrateur crée un compte avec un nom d’utilisateur sans email",
   await page.getByRole("button", { name: "Créer le compte" }).click();
   await expect(page.getByText("soeur.marie", { exact: true })).toBeVisible();
   await expect(
-    page.getByText(/elle devra choisir son propre mot de passe à sa première connexion/),
+    page.getByText(/Elle devra choisir son propre mot de passe à sa première connexion/),
   ).toBeVisible();
   await expect(page.getByText(/Mot de passe à renouveler/)).toBeVisible();
 });

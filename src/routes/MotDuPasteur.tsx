@@ -8,7 +8,7 @@ import { PageBody, PageHead } from "@/components/layout/MainLayout";
 import { Button, Input, Tabs } from "@/components/ui";
 import { RichTextEditor } from "@/components/forms/RichTextEditor";
 import { motDuPasteurApi } from "@/api";
-import { HttpError } from "@/api/client";
+import { ActionError } from "@/components/ui/ActionError";
 import type { MotDuPasteur } from "@/types";
 import common from "./common.module.css";
 
@@ -43,8 +43,6 @@ export function MotDuPasteurPage() {
     },
   });
 
-  const serverError = save.error instanceof HttpError ? save.error : null;
-
   const update = <K extends keyof MotDuPasteur>(key: K, value: MotDuPasteur[K]) =>
     setDraft((prev) => ({ ...prev, [key]: value }));
 
@@ -67,11 +65,7 @@ export function MotDuPasteurPage() {
           retry={() => void query.refetch()}
         />
         <div className={common.editor}>
-          {serverError ? (
-            <div className={common.errorBox} role="alert">
-              <strong>Erreur :</strong> {serverError.message}
-            </div>
-          ) : null}
+          <ActionError error={save.error} />
 
           {save.isSuccess && !save.isPending ? (
             <p className={common.notice} role="status">

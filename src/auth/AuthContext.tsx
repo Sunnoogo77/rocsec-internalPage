@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import { api, HttpError } from "@/api/client";
 import type { User } from "@/types";
@@ -16,6 +24,7 @@ interface AuthState {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
+  invalidateSession: () => void;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -25,20 +34,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [passwordChanged, setPasswordChanged] = useState(false);
+  const sessionVersion = useRef(0);
+
+  const invalidateSession = useCallback(() => {
+    sessionVersion.current += 1;
+    setUser(null);
+    setLoading(false);
+    cache.clear();
+  }, [cache]);
 
   const refresh = useCallback(async () => {
+    const version = sessionVersion.current;
     try {
       const me = await api.get<User>("/auth/me/");
-      setUser(me);
-    } catch (err) {
-      if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
-        setUser(null);
-      } else {
-        // Pour les erreurs imprévues (réseau, serveur), on n'efface pas la session locale.
-        setUser(null);
-      }
+      if (version === sessionVersion.current) setUser(me);
+    } catch {
+      if (version === sessionVersion.current) setUser(null);
     } finally {
-      setLoading(false);
+      if (version === sessionVersion.current) setLoading(false);
     }
   }, []);
 
@@ -56,8 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         otp_token: otpToken ?? "",
       });
       await api.ensureCsrf();
+      sessionVersion.current += 1;
       setPasswordChanged(false);
       setUser(me);
+      setLoading(false);
       return { requiresPasswordChange: me.must_change_password };
     } catch (err) {
       if (err instanceof HttpError) {
@@ -76,9 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    setUser(null);
-    cache.clear();
-  }, [cache]);
+    invalidateSession();
+  }, [invalidateSession]);
 
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {
@@ -87,15 +101,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         new_password: newPassword,
       });
       setPasswordChanged(true);
-      setUser(null);
-      cache.clear();
+      invalidateSession();
     },
-    [cache],
+    [invalidateSession],
   );
 
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, logout, refresh, changePassword, passwordChanged }),
-    [user, loading, login, logout, refresh, changePassword, passwordChanged],
+    () => ({
+      user,
+      loading,
+      login,
+      logout,
+      refresh,
+      invalidateSession,
+      changePassword,
+      passwordChanged,
+    }),
+    [user, loading, login, logout, refresh, invalidateSession, changePassword, passwordChanged],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

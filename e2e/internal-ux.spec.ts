@@ -113,6 +113,7 @@ async function setup(
   page: Page,
   options: {
     editor?: boolean;
+    superadmin?: boolean;
     recent?: boolean;
     own?: boolean;
     published?: boolean;
@@ -127,7 +128,13 @@ async function setup(
     const url = new URL(request.url());
     const path = url.pathname.replace("/api/v1", "");
     if (path === "/auth/me/")
-      return route.fulfill({ json: { ...user, role: options.editor ? "editeur" : "validateur" } });
+      return route.fulfill({
+        json: {
+          ...user,
+          is_superuser: Boolean(options.superadmin),
+          role: options.editor ? "editeur" : "validateur",
+        },
+      });
     if (path === "/auth/csrf/") return route.fulfill({ json: { csrf: "synthetic" } });
     if (path === "/auth/2fa/step-up/")
       return route.fulfill({
@@ -367,7 +374,12 @@ test("les changements restent locaux avant enregistrement et bloquent la décisi
   await expect(page.getByText("Un autre validateur doit relire", { exact: false })).toBeVisible();
 });
 
-for (const config of [{ editor: true }, { own: true }, { recent: false }]) {
+for (const config of [
+  { editor: true },
+  { own: true },
+  { recent: false },
+  { superadmin: true, own: true, recent: false },
+]) {
   test(`la publication respecte les accès ${JSON.stringify(config)}`, async ({ page }) => {
     await setup(page, config);
     await page.goto("/temoignages/esperance");
@@ -376,6 +388,22 @@ for (const config of [{ editor: true }, { own: true }, { recent: false }]) {
       await expect(page.getByRole("button", { name: "Vérifier mon identité" })).toBeVisible();
   });
 }
+
+test("le superadministrateur peut publier son propre témoignage après vérification", async ({
+  page,
+}) => {
+  const writes = await setup(page, { superadmin: true, own: true, editor: true });
+  await page.goto("/temoignages/esperance");
+  const publish = page.getByRole("button", { name: "Approuver et publier" });
+  await expect(publish).toBeEnabled();
+  await expect(page.getByText("Un autre validateur doit relire", { exact: false })).toHaveCount(0);
+  await publish.click();
+  await page.getByRole("button", { name: "Confirmer la publication" }).click();
+  await expect(
+    page.getByText("Ce témoignage est publié. La fiche est en lecture seule."),
+  ).toBeVisible();
+  expect(writes.filter((write) => write.path.endsWith("/approuver/"))).toHaveLength(1);
+});
 
 test("la navigation entre fiches recharge le bon formulaire", async ({ page }) => {
   await setup(page);

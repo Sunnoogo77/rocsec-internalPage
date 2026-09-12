@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthContext";
 import { api } from "@/api/client";
 import { Button, Input, Modal } from "@/components/ui";
+import { ActionError } from "@/components/ui/ActionError";
+import buttonStyles from "@/components/ui/Button.module.css";
 
 export function useWorkflowAccess(
   item?: { cree_par: string | null; modifie_par: string | null } | null,
@@ -24,13 +27,16 @@ export function useWorkflowAccess(
   return {
     validator,
     own,
+    requiresOtherReviewer: own && !user?.is_superuser,
     recent,
-    canValidate: validator && !own && recent,
+    canValidate: validator && (!own || Boolean(user?.is_superuser)) && recent,
     canManage: validator && recent,
     assurance,
   };
 }
 export function IdentityCheck() {
+  const { user } = useAuth();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState("");
   const cache = useQueryClient();
@@ -42,6 +48,18 @@ export function IdentityCheck() {
       void cache.invalidateQueries({ queryKey: ["mfa-assurance"] });
     },
   });
+  if (!user?.has_2fa) {
+    return (
+      <Link
+        className={`${buttonStyles.btn} ${buttonStyles.secondary} ${buttonStyles.sm}`}
+        style={{ whiteSpace: "normal", lineHeight: 1.4 }}
+        to="/reglages#securite"
+        state={{ returnTo: `${location.pathname}${location.search}` }}
+      >
+        Configurer la double authentification
+      </Link>
+    );
+  }
   return (
     <>
       <Button
@@ -73,7 +91,7 @@ export function IdentityCheck() {
         >
           <p>
             Entrez le code à six chiffres de votre application d’authentification. Votre fiche reste
-            ouverte.
+            ouverte. Si vous venez d’utiliser un code pour vous connecter, attendez le suivant.
           </p>
           <Input
             label="Code d’authentification"
@@ -85,7 +103,7 @@ export function IdentityCheck() {
             value={token}
             onChange={(e) => setToken(e.target.value.replace(/\D/g, ""))}
           />
-          {verify.error && <p role="alert">{verify.error.message}</p>}
+          <ActionError error={verify.error} title="Le code n’a pas pu être vérifié." />
           <Button type="submit" disabled={verify.isPending || token.length !== 6}>
             {verify.isPending ? "Vérification…" : "Confirmer"}
           </Button>

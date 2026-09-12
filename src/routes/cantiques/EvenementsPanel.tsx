@@ -12,7 +12,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button, Card, Input, Textarea, Toggle } from "@/components/ui";
-import { HttpError } from "@/api/client";
+import { ActionError } from "@/components/ui/ActionError";
 import { evenementsCantiqueApi } from "@/api";
 import type { EvenementCantique } from "@/types";
 
@@ -72,32 +72,22 @@ function EvenementsContent() {
     },
   });
 
-  const createError = createMutation.error instanceof HttpError ? createMutation.error : null;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {!creating ? (
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Button onClick={() => setCreating(true)}>+ Nouvel événement</Button>
+          <Button
+            onClick={() => {
+              createMutation.reset();
+              setCreating(true);
+            }}
+          >
+            + Nouvel événement
+          </Button>
         </div>
       ) : (
         <Card title="Nouvel événement">
-          {createError && (
-            <div
-              role="alert"
-              style={{
-                background: "rgba(220, 38, 38, 0.08)",
-                border: "1px solid rgba(220, 38, 38, 0.25)",
-                color: "var(--red-700)",
-                borderRadius: 6,
-                padding: "10px 14px",
-                margin: "0 0 14px",
-                fontSize: 13,
-              }}
-            >
-              <strong>Création refusée :</strong> {createError.message}
-            </div>
-          )}
+          <ActionError error={createMutation.error} title="L’événement n’a pas été créé." />
           <div
             style={{
               display: "grid",
@@ -149,6 +139,7 @@ function EvenementsContent() {
               onClick={() => {
                 setCreating(false);
                 setDraft(emptyDraft());
+                createMutation.reset();
               }}
             >
               Annuler
@@ -217,102 +208,113 @@ function EvenementRow({
 
   if (!editing) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 14,
-          padding: "12px 14px",
-          border: "1px solid var(--gray-200)",
-          borderRadius: 6,
-          background: "var(--surface)",
-        }}
-      >
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div
-            style={{
-              fontFamily: "var(--f-serif, Georgia, serif)",
-              fontSize: 16,
-              fontWeight: 500,
-              color: "var(--ink-1, #0f1a3a)",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {evenement.nom_fr}
-            {evenement.date_evenement && (
-              <span style={{ marginLeft: 10, fontSize: 12, color: "var(--gray-500)" }}>
-                · {evenement.date_evenement}
-              </span>
-            )}
-            {evenement.close && (
-              <span
-                style={{
-                  marginLeft: 10,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: 0.5,
-                  textTransform: "uppercase",
-                  background: "var(--gray-100, #f3f4f6)",
-                  color: "var(--gray-600, #4b5563)",
-                  padding: "2px 8px",
-                  borderRadius: 999,
-                }}
-              >
-                Clos
-              </span>
-            )}
-            <span
-              style={{
-                marginLeft: 10,
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--rst-blue, #1e47a1)",
-              }}
-            >
-              {evenement.nombre_cantiques ?? 0} cantique
-              {(evenement.nombre_cantiques ?? 0) > 1 ? "s" : ""}
-            </span>
-          </div>
-          {evenement.description_fr && (
+      <>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+            padding: "12px 14px",
+            border: "1px solid var(--gray-200)",
+            borderRadius: 6,
+            background: "var(--surface)",
+          }}
+        >
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div
               style={{
-                fontSize: 13,
-                color: "var(--gray-600, #4b5563)",
-                marginTop: 2,
+                fontFamily: "var(--f-serif, Georgia, serif)",
+                fontSize: 16,
+                fontWeight: 500,
+                color: "var(--ink-1, #0f1a3a)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
               }}
             >
-              {evenement.description_fr}
+              {evenement.nom_fr}
+              {evenement.date_evenement && (
+                <span style={{ marginLeft: 10, fontSize: 12, color: "var(--gray-500)" }}>
+                  · {evenement.date_evenement}
+                </span>
+              )}
+              {evenement.close && (
+                <span
+                  style={{
+                    marginLeft: 10,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                    background: "var(--gray-100, #f3f4f6)",
+                    color: "var(--gray-600, #4b5563)",
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                  }}
+                >
+                  Clos
+                </span>
+              )}
+              <span
+                style={{
+                  marginLeft: 10,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "var(--rst-blue, #1e47a1)",
+                }}
+              >
+                {evenement.nombre_cantiques ?? 0} cantique
+                {(evenement.nombre_cantiques ?? 0) > 1 ? "s" : ""}
+              </span>
             </div>
-          )}
+            {evenement.description_fr && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--gray-600, #4b5563)",
+                  marginTop: 2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {evenement.description_fr}
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                remove.reset();
+                update.reset();
+                setEditing(true);
+              }}
+            >
+              Éditer
+            </Button>
+            <Button
+              size="sm"
+              variant="dangerOutline"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Supprimer l'événement « ${evenement.nom_fr} » ? Les cantiques associés gardent leur position dans le catalogue mais perdent leur référence à cet événement.`,
+                  )
+                ) {
+                  remove.mutate();
+                }
+              }}
+              disabled={remove.isPending}
+            >
+              Supprimer
+            </Button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-            Éditer
-          </Button>
-          <Button
-            size="sm"
-            variant="dangerOutline"
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Supprimer l'événement « ${evenement.nom_fr} » ? Les cantiques associés gardent leur position dans le catalogue mais perdent leur référence à cet événement.`,
-                )
-              ) {
-                remove.mutate();
-              }
-            }}
-            disabled={remove.isPending}
-          >
-            Supprimer
-          </Button>
-        </div>
-      </div>
+        <ActionError error={remove.error} title="L’événement n’a pas été supprimé." />
+      </>
     );
   }
 
@@ -363,6 +365,7 @@ function EvenementRow({
         onChange={(v) => setDraft((p) => ({ ...p, close: v }))}
         label="Événement clos (passé)"
       />
+      <ActionError error={update.error} title="L’événement n’a pas été modifié." />
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <Button variant="ghost" onClick={() => setEditing(false)}>
           Annuler

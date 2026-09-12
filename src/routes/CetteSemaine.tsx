@@ -7,7 +7,7 @@ import { PageBody, PageHead } from "@/components/layout/MainLayout";
 import { Button, Card, Input, StatusBadge } from "@/components/ui";
 import { MediaPickerModal } from "@/components/forms/MediaPickerModal";
 import { semaineApi } from "@/api";
-import { HttpError } from "@/api/client";
+import { ActionError } from "@/components/ui/ActionError";
 import type { ImageSemaine, StatutWorkflow } from "@/types";
 
 /** Id stable pour brancher le `<label htmlFor>` sur l'`<input type="file">`. */
@@ -75,7 +75,6 @@ export function CetteSemainePage() {
     },
     onSuccess: invalidate,
   });
-  const uploadError = uploadMutation.error instanceof HttpError ? uploadMutation.error : null;
 
   const patchMutation = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Partial<ImageSemaine> }) =>
@@ -196,7 +195,10 @@ export function CetteSemainePage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setPickerOpen(true)}
+                  onClick={() => {
+                    importMutation.reset();
+                    setPickerOpen(true);
+                  }}
                   disabled={importMutation.isPending}
                 >
                   {importMutation.isPending ? "Import…" : "Depuis la médiathèque"}
@@ -235,31 +237,9 @@ export function CetteSemainePage() {
               {semaineCourante.semaine}/{semaineCourante.annee}).
             </p>
 
-            {uploadError && (
-              <div
-                role="alert"
-                style={{
-                  background: "rgba(220, 38, 38, 0.08)",
-                  border: "1px solid rgba(220, 38, 38, 0.25)",
-                  color: "var(--red-700)",
-                  borderRadius: 6,
-                  padding: "10px 14px",
-                  margin: "0 0 16px",
-                  fontSize: 13,
-                }}
-              >
-                <strong>L'upload a échoué :</strong> {uploadError.message}
-                {uploadError.details && Object.keys(uploadError.details).length > 0 && (
-                  <ul style={{ margin: "6px 0 0 18px" }}>
-                    {Object.entries(uploadError.details).map(([field, msg]) => (
-                      <li key={field}>
-                        <em>{field}</em> : {Array.isArray(msg) ? msg.join(" ; ") : String(msg)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+            <ActionError
+              error={uploadMutation.error || patchMutation.error || deleteMutation.error}
+            />
 
             {liste.length === 0 ? (
               <div
@@ -327,6 +307,8 @@ export function CetteSemainePage() {
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onConfirm={(ids) => importMutation.mutate(ids)}
+        error={importMutation.error}
+        pending={importMutation.isPending}
         confirmLabel="Importer dans la galerie"
       />
     </>

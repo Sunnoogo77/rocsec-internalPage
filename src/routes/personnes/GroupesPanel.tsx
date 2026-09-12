@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button, Card, Input, Textarea, Toggle } from "@/components/ui";
-import { HttpError } from "@/api/client";
+import { ActionError } from "@/components/ui/ActionError";
 import { groupesPersonnesApi, personnesApi } from "@/api";
 import type { GroupePersonnes, Personne } from "@/types";
 
@@ -72,33 +72,24 @@ function GroupesContent() {
     },
   });
 
-  const createError = createMutation.error instanceof HttpError ? createMutation.error : null;
   const personnes = personnesQuery.data?.results ?? [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {!creating ? (
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Button onClick={() => setCreating(true)}>+ Nouveau groupe</Button>
+          <Button
+            onClick={() => {
+              createMutation.reset();
+              setCreating(true);
+            }}
+          >
+            + Nouveau groupe
+          </Button>
         </div>
       ) : (
         <Card title="Nouveau groupe">
-          {createError && (
-            <div
-              role="alert"
-              style={{
-                background: "rgba(220, 38, 38, 0.08)",
-                border: "1px solid rgba(220, 38, 38, 0.25)",
-                color: "var(--red-700)",
-                borderRadius: 6,
-                padding: "10px 14px",
-                margin: "0 0 14px",
-                fontSize: 13,
-              }}
-            >
-              <strong>Création refusée :</strong> {createError.message}
-            </div>
-          )}
+          <ActionError error={createMutation.error} title="Le groupe n’a pas été créé." />
           <div
             style={{
               display: "grid",
@@ -149,6 +140,7 @@ function GroupesContent() {
               onClick={() => {
                 setCreating(false);
                 setDraft(emptyDraft());
+                createMutation.reset();
               }}
             >
               Annuler
@@ -224,94 +216,105 @@ function GroupeRow({
 
   if (!editing) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 14,
-          padding: "12px 14px",
-          border: "1px solid var(--gray-200)",
-          borderRadius: 6,
-          background: "var(--surface)",
-        }}
-      >
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div
-            style={{
-              fontFamily: "var(--f-serif, Georgia, serif)",
-              fontSize: 16,
-              fontWeight: 500,
-              color: "var(--ink-1, #0f1a3a)",
-            }}
-          >
-            {groupe.nom_fr}
-            <span
+      <>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+            padding: "12px 14px",
+            border: "1px solid var(--gray-200)",
+            borderRadius: 6,
+            background: "var(--surface)",
+          }}
+        >
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
               style={{
-                marginLeft: 10,
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--rst-blue, #1e47a1)",
+                fontFamily: "var(--f-serif, Georgia, serif)",
+                fontSize: 16,
+                fontWeight: 500,
+                color: "var(--ink-1, #0f1a3a)",
               }}
             >
-              {groupe.nombre_membres ?? membresList.length} membre
-              {(groupe.nombre_membres ?? membresList.length) > 1 ? "s" : ""}
-            </span>
-            {!groupe.actif && (
+              {groupe.nom_fr}
               <span
                 style={{
                   marginLeft: 10,
                   fontSize: 11,
                   fontWeight: 600,
-                  letterSpacing: 0.5,
-                  textTransform: "uppercase",
-                  background: "var(--gray-100, #f3f4f6)",
-                  color: "var(--gray-600, #4b5563)",
-                  padding: "2px 8px",
-                  borderRadius: 999,
+                  color: "var(--rst-blue, #1e47a1)",
                 }}
               >
-                Inactif
+                {groupe.nombre_membres ?? membresList.length} membre
+                {(groupe.nombre_membres ?? membresList.length) > 1 ? "s" : ""}
               </span>
+              {!groupe.actif && (
+                <span
+                  style={{
+                    marginLeft: 10,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                    background: "var(--gray-100, #f3f4f6)",
+                    color: "var(--gray-600, #4b5563)",
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                  }}
+                >
+                  Inactif
+                </span>
+              )}
+            </div>
+            {membresList.length > 0 && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--gray-600, #4b5563)",
+                  marginTop: 4,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {membresList.map((p) => p.libelle).join(" · ")}
+              </div>
             )}
           </div>
-          {membresList.length > 0 && (
-            <div
-              style={{
-                fontSize: 12,
-                color: "var(--gray-600, #4b5563)",
-                marginTop: 4,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
+          <div style={{ display: "flex", gap: 6 }}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                remove.reset();
+                update.reset();
+                setEditing(true);
               }}
             >
-              {membresList.map((p) => p.libelle).join(" · ")}
-            </div>
-          )}
+              Éditer
+            </Button>
+            <Button
+              size="sm"
+              variant="dangerOutline"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Supprimer le groupe « ${groupe.nom_fr} » ? Les cantiques qui le référencent perdront cet interprète.`,
+                  )
+                ) {
+                  remove.mutate();
+                }
+              }}
+              disabled={remove.isPending}
+            >
+              Supprimer
+            </Button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-            Éditer
-          </Button>
-          <Button
-            size="sm"
-            variant="dangerOutline"
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Supprimer le groupe « ${groupe.nom_fr} » ? Les cantiques qui le référencent perdront cet interprète.`,
-                )
-              ) {
-                remove.mutate();
-              }
-            }}
-            disabled={remove.isPending}
-          >
-            Supprimer
-          </Button>
-        </div>
-      </div>
+        <ActionError error={remove.error} title="Le groupe n’a pas été supprimé." />
+      </>
     );
   }
 
@@ -367,6 +370,7 @@ function GroupeRow({
         onChange={(v) => setDraft((p) => ({ ...p, actif: v }))}
         label="Groupe actif (visible dans les sélecteurs)"
       />
+      <ActionError error={update.error} title="Le groupe n’a pas été modifié." />
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <Button variant="ghost" onClick={() => setEditing(false)}>
           Annuler

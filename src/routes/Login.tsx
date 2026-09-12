@@ -48,7 +48,12 @@ export function LoginPage() {
   const { user, login, passwordChanged } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const state = location.state as { from?: string; passwordChanged?: boolean } | null;
+  const state = location.state as {
+    from?: string;
+    returnTo?: string;
+    passwordChanged?: boolean;
+    securityNotice?: string;
+  } | null;
   const from = state?.from && state.from !== "/changer-mot-de-passe" ? state.from : "/";
 
   const [username, setUsername] = useState("");
@@ -59,11 +64,11 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (user) {
+  if (user && !state?.securityNotice) {
     return (
       <Navigate
         to={user.must_change_password ? "/changer-mot-de-passe" : from}
-        state={{ from }}
+        state={{ from, returnTo: state?.returnTo }}
         replace
       />
     );
@@ -82,7 +87,7 @@ export function LoginPage() {
       }
       navigate(result.requiresPasswordChange ? "/changer-mot-de-passe" : from, {
         replace: true,
-        state: { from },
+        state: { from, returnTo: state?.returnTo },
       });
     } catch (err) {
       if (err instanceof HttpError) {
@@ -116,6 +121,11 @@ export function LoginPage() {
           {(state?.passwordChanged || passwordChanged) && (
             <p role="status" className={styles.notice}>
               Votre mot de passe a été modifié. Connectez-vous avec votre nouveau mot de passe.
+            </p>
+          )}
+          {state?.securityNotice && (
+            <p role="status" className={styles.notice}>
+              {state.securityNotice}
             </p>
           )}
           {error ? (
@@ -171,8 +181,8 @@ export function LoginPage() {
             </div>
             {otpRequired ? (
               <Input
-                label="Code TOTP"
-                help="Code à 6 chiffres de votre application d'authentification"
+                label="Code de vérification"
+                help="Ouvrez votre application d’authentification sur votre téléphone et saisissez le code à six chiffres affiché pour RST Admin."
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]{6}"

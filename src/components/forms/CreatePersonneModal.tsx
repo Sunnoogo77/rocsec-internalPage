@@ -14,7 +14,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { Button, Input, Modal, Select } from "@/components/ui";
 import { personnesApi } from "@/api";
-import { HttpError } from "@/api/client";
+import { ActionError } from "@/components/ui/ActionError";
 import type { Personne } from "@/types";
 
 import { RolesMultiSelect } from "./RolesMultiSelect";
@@ -57,8 +57,6 @@ export function CreatePersonneModal({
       }),
     onSuccess: (p) => onCreated(p),
   });
-
-  const serverError = mutation.error instanceof HttpError ? mutation.error : null;
 
   const canSubmit =
     prenom.trim().length > 0 && nom.trim().length > 0 && !mutation.isPending && access.canManage;
@@ -113,9 +111,7 @@ export function CreatePersonneModal({
           onChange={setRoles}
           help="Sélectionne tous les rôles applicables (pasteur, chantre, choeur…). Bouton « + Nouveau rôle » pour en créer un."
         />
-        {serverError ? (
-          <p style={{ color: "var(--red-700)", fontSize: 13, margin: 0 }}>{serverError.message}</p>
-        ) : null}
+        <ActionError error={mutation.error} title="La personne n’a pas été créée" />
       </div>
     </Modal>
   );

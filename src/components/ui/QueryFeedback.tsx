@@ -1,4 +1,5 @@
 import { Button } from "./Button";
+import { ActionError } from "./ActionError";
 export function QueryFeedback({
   loading,
   error,
@@ -10,11 +11,8 @@ export function QueryFeedback({
 }) {
   if (error)
     return (
-      <div role="alert" className="queryFeedback">
-        <div>
-          <strong>Le chargement a échoué.</strong>
-          <p>Les informations ne sont pas disponibles pour le moment.</p>
-        </div>
+      <div className="queryFeedback">
+        <ActionError error={error} title="Le chargement a échoué." />
         {retry && <Button onClick={retry}>Réessayer</Button>}
       </div>
     );

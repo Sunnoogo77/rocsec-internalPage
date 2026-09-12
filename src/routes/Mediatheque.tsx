@@ -1,3 +1,4 @@
+import { ActionError } from "@/components/ui/ActionError";
 import { QueryFeedback } from "@/components/ui/QueryFeedback";
 import { IdentityCheck, useWorkflowAccess } from "@/components/forms/WorkflowAccess";
 import { useState } from "react";
@@ -29,6 +30,7 @@ const VISUALLY_HIDDEN: React.CSSProperties = {
 export function MediathequePage() {
   const access = useWorkflowAccess();
   const [feedback, setFeedback] = useState("");
+  const [transferError, setTransferError] = useState<unknown>(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
@@ -48,6 +50,7 @@ export function MediathequePage() {
       const out = [];
       const failed: string[] = [];
       setFeedback("");
+      setTransferError(null);
       for (const file of files) {
         setUploadingCount((n) => n + 1);
         try {
@@ -55,6 +58,7 @@ export function MediathequePage() {
           out.push(await mediasApi.upload(file));
         } catch (err) {
           failed.push(file.name);
+          setTransferError(err);
           console.error("Échec d’envoi", err);
         } finally {
           setUploadingCount((n) => n - 1);
@@ -79,12 +83,14 @@ export function MediathequePage() {
     if (selectedIds.size === 0 || !access.canManage) return;
     if (!window.confirm(`Supprimer ${selectedIds.size} média(s) sélectionné(s) ?`)) return;
     setDeleting(true);
+    setTransferError(null);
     const failed = new Set<string>();
     for (const id of Array.from(selectedIds)) {
       try {
         await mediasApi.remove(id);
       } catch (err) {
         failed.add(id);
+        setTransferError(err);
         console.error("Suppression échouée", err);
       }
     }
@@ -172,16 +178,13 @@ export function MediathequePage() {
         }
       />
       <PageBody>
+        <ActionError error={transferError} />
         {feedback && (
           <p role="status" className="securityNotice">
             {feedback}
           </p>
         )}
-        {remove.error && (
-          <p role="alert" className="errorNotice">
-            {remove.error.message}
-          </p>
-        )}
+        <ActionError error={remove.error} />
         {access.validator && !access.recent && (
           <div className="securityNotice">
             <p>La suppression nécessite une vérification récente de votre identité.</p>

@@ -1,5 +1,6 @@
 import { Modal } from "@/components/ui/Modal";
 import { QueryFeedback } from "@/components/ui/QueryFeedback";
+import { ActionError } from "@/components/ui/ActionError";
 /**
  * MediaPickerModal — sélecteur multi-images depuis la Médiathèque.
  *
@@ -20,6 +21,8 @@ interface Props {
   confirmLabel?: string;
   /** Limite max de sélection (optionnel). */
   maxSelection?: number;
+  error?: unknown;
+  pending?: boolean;
 }
 
 export function MediaPickerModal({
@@ -28,6 +31,8 @@ export function MediaPickerModal({
   onConfirm,
   confirmLabel = "Importer la sélection",
   maxSelection,
+  error,
+  pending = false,
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -60,7 +65,15 @@ export function MediaPickerModal({
   const items = query.data?.results ?? [];
 
   return (
-    <Modal open={open} wide onClose={onClose} title="Choisir des images">
+    <Modal
+      open={open}
+      wide
+      onClose={() => {
+        if (!pending) onClose();
+      }}
+      title="Choisir des images"
+    >
+      <ActionError error={error} title="Les images n’ont pas pu être importées." />
       <p>
         Choisissez les images dans l’ordre souhaité pour la galerie.
         {maxSelection !== undefined ? ` Maximum : ${maxSelection}.` : ""}
@@ -188,11 +201,14 @@ export function MediaPickerModal({
             : `${selected.size} image${selected.size > 1 ? "s" : ""} sélectionnée${selected.size > 1 ? "s" : ""}`}
         </span>
         <div style={{ display: "flex", gap: 10 }}>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} disabled={pending}>
             Annuler
           </Button>
-          <Button onClick={() => onConfirm(orderedSelection)} disabled={selected.size === 0}>
-            {confirmLabel} ({selected.size})
+          <Button
+            onClick={() => onConfirm(orderedSelection)}
+            disabled={selected.size === 0 || pending}
+          >
+            {pending ? "Import…" : confirmLabel} ({selected.size})
           </Button>
         </div>
       </footer>
