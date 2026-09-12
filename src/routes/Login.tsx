@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import { Button, Input } from "@/components/ui";
@@ -52,6 +53,7 @@ export function LoginPage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [otpRequired, setOtpRequired] = useState(false);
   const [otpToken, setOtpToken] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -135,16 +137,38 @@ export function LoginPage() {
               onChange={(event) => setUsername(event.target.value)}
               required
             />
-            <Input
-              label="Mot de passe"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              minLength={12}
-              maxLength={256}
-            />
+            <div className={styles.passwordField}>
+              <Input
+                id="login-password"
+                label="Mot de passe"
+                type={passwordVisible ? "text" : "password"}
+                className={styles.passwordInput}
+                autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                minLength={12}
+                maxLength={256}
+              />
+              <button
+                type="button"
+                className={styles.passwordToggle}
+                aria-label={
+                  passwordVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"
+                }
+                aria-controls="login-password"
+                onClick={() => setPasswordVisible((visible) => !visible)}
+              >
+                {passwordVisible ? (
+                  <EyeOff size={18} aria-hidden="true" />
+                ) : (
+                  <Eye size={18} aria-hidden="true" />
+                )}
+              </button>
+            </div>
             {otpRequired ? (
               <Input
                 label="Code TOTP"

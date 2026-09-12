@@ -33,6 +33,43 @@ test("une route privée demande une connexion et ne propose aucune inscription",
   });
 });
 
+test("le mot de passe peut être affiché puis masqué sans envoyer le formulaire", async ({
+  page,
+}) => {
+  let loginRequests = 0;
+  const password = " Synthetic-password.123! ";
+  await page.route("**/api/v1/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/csrf/")) return route.fulfill({ json: { csrf: "synthetic-csrf" } });
+    if (path.endsWith("/login/")) {
+      loginRequests++;
+      expect(route.request().postDataJSON().password).toBe(password);
+      return route.fulfill({ status: 403, json: { detail: "Identifiants de test" } });
+    }
+    return route.fulfill({ status: 403, json: {} });
+  });
+  await page.goto("/login");
+  await page.getByLabel("Nom d’utilisateur").fill(user.username);
+  const field = page.getByLabel(/^Mot de passe/);
+  await field.fill(password);
+  await expect(field).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "Afficher le mot de passe", exact: true }).click();
+  await expect(field).toHaveAttribute("type", "text");
+  await expect(field).toHaveValue(password);
+  const hide = page.getByRole("button", { name: "Masquer le mot de passe", exact: true });
+  await hide.focus();
+  await hide.press("Space");
+  await expect(field).toHaveAttribute("type", "password");
+  await expect(field).toHaveValue(password);
+  await expect(
+    page.getByRole("button", { name: "Afficher le mot de passe", exact: true }),
+  ).toBeFocused();
+  expect(loginRequests).toBe(0);
+  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText("Identifiants de test");
+  expect(loginRequests).toBe(1);
+});
+
 test("connexion avec code TOTP et CSRF puis accès aux réglages", async ({ page }) => {
   let loggedIn = false;
   await page.route("**/api/v1/**", async (route) => {
