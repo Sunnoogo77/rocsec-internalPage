@@ -32,3 +32,39 @@
   color: var(--blue-700);
   font-weight: 600;
 }
+.levels {
+  margin: 0 0 24px;
+  display: grid;
+  gap: 10px;
+  color: var(--gray-700);
+}
+.levels p,
+.accountDetails p {
+  margin: 0;
+  line-height: 1.6;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 24px;
+}
+.accountDetails {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--gray-600);
+  overflow-wrap: anywhere;
+}
+.accountDetails button {
+  justify-self: start;
+}
+.workspace :global(.accountRow) {
+  display: grid;
+  gap: 12px;
+}
+@media (max-width: 1000px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}

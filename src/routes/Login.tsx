@@ -67,7 +67,13 @@ export function LoginPage() {
   if (user && !state?.securityNotice) {
     return (
       <Navigate
-        to={user.must_change_password ? "/changer-mot-de-passe" : from}
+        to={
+          user.must_change_password
+            ? "/changer-mot-de-passe"
+            : user.mfa_setup_required
+              ? "/reglages#securite"
+              : from
+        }
         state={{ from, returnTo: state?.returnTo }}
         replace
       />
@@ -85,10 +91,17 @@ export function LoginPage() {
         setSubmitting(false);
         return;
       }
-      navigate(result.requiresPasswordChange ? "/changer-mot-de-passe" : from, {
-        replace: true,
-        state: { from, returnTo: state?.returnTo },
-      });
+      navigate(
+        result.requiresPasswordChange
+          ? "/changer-mot-de-passe"
+          : result.requiresMfaSetup
+            ? "/reglages#securite"
+            : from,
+        {
+          replace: true,
+          state: { from, returnTo: state?.returnTo ?? from },
+        },
+      );
     } catch (err) {
       if (err instanceof HttpError) {
         setError(err.message);
@@ -182,7 +195,7 @@ export function LoginPage() {
             {otpRequired ? (
               <Input
                 label="Code de vérification"
-                help="Ouvrez votre application d’authentification sur votre téléphone et saisissez le code à six chiffres affiché pour RST Admin."
+                help="Ouvrez votre application d’authentification sur votre téléphone et saisissez le code à six chiffres affiché pour RST Admin. Un seul code est demandé pour cette connexion."
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]{6}"

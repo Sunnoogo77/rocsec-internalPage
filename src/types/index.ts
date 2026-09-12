@@ -1,3 +1,4 @@
+import type { PublicationState } from "@/lib/publication";
 /**
  * Types miroirs des serializers Django.
  *
@@ -8,12 +9,7 @@
 
 export type Lang = "fr" | "en";
 
-export type StatutWorkflow =
-  | "brouillon"
-  | "en_revue"
-  | "publie"
-  | "rejete"
-  | "archive";
+export type StatutWorkflow = "brouillon" | "en_revue" | "publie" | "rejete" | "archive";
 
 export type StatutTemoignage = "recu" | "en_revue" | "publie" | "rejete";
 
@@ -30,6 +26,8 @@ export interface User {
   is_staff: boolean;
   is_superuser: boolean;
   has_2fa: boolean;
+  mfa_required: boolean;
+  mfa_setup_required: boolean;
   must_change_password: boolean;
   last_login: string | null;
   date_joined: string;
@@ -145,7 +143,7 @@ export interface TypeCulte {
   ordre: number;
 }
 
-export interface Sermon {
+export interface Sermon extends PublicationState {
   id: string;
   slug: string;
   serie: Serie | string | null;
@@ -235,7 +233,7 @@ export interface SessionAdorationTraduction {
   description: string;
 }
 
-export interface SessionAdoration {
+export interface SessionAdoration extends PublicationState {
   id: string;
   slug: string;
   date: string;
@@ -268,7 +266,7 @@ export interface FamilleCantique {
   ordre: number;
 }
 
-export interface Cantique {
+export interface Cantique extends PublicationState {
   id: string;
   slug: string;
   numero: string;
@@ -332,7 +330,7 @@ export interface AnnonceTraduction {
   content_blocks: ContentBlock[];
 }
 
-export interface Annonce {
+export interface Annonce extends PublicationState {
   id: string;
   slug: string;
   type: "reunion" | "voyage" | "sortie" | "exceptionnelle";
@@ -387,7 +385,7 @@ export interface TemoignagePhoto {
   ajoutee_le: string;
 }
 
-export interface Temoignage {
+export interface Temoignage extends PublicationState {
   id: string;
   slug: string;
   type: "citation" | "illustre" | "recit";
@@ -501,7 +499,7 @@ export interface GenesePageTraduction {
   blocs: GeneseBlock[];
 }
 
-export interface GenesePage {
+export interface GenesePage extends PublicationState {
   id: string;
   slug: string;
   type: "pilier" | "evenement";
@@ -611,7 +609,7 @@ export interface VlogSemaineCantiqueDetail {
   date_enregistrement: string;
 }
 
-export interface VlogSemaine {
+export interface VlogSemaine extends PublicationState {
   id: string;
   date_culte: string;
   heure_culte: string;

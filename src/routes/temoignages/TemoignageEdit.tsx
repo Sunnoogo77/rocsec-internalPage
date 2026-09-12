@@ -1,3 +1,6 @@
+import { DiscardRevision } from "@/components/forms/DiscardRevision";
+import { publicationNotice, revisionOptions } from "@/lib/publication";
+import { FormValidationError } from "@/lib/formValidation";
 import { ActionError } from "@/components/ui/ActionError";
 import { SaveFooter } from "@/components/forms/SaveFooter";
 import { QueryFeedback } from "@/components/ui/QueryFeedback";
@@ -81,6 +84,11 @@ export function TemoignageEditPage() {
     enabled: !isNew && Boolean(slug),
   });
 
+  const [editingVersion, setEditingVersion] = useState<number | null>(null);
+  if (query.data && editingVersion === null) {
+    setEditingVersion(query.data.revision_version ?? query.data.revision?.version ?? 0);
+  }
+  const options = revisionOptions({ statut: "", revision_version: editingVersion ?? 0 });
   const access = useWorkflowAccess(query.data);
   const [draft, setDraft] = useState<DraftState | null>(isNew ? emptyDraft() : null);
 
@@ -105,7 +113,12 @@ export function TemoignageEditPage() {
     mutationFn: () => {
       if (!draft) throw new Error("État local manquant");
       if (!draft.fr.auteur.trim() || !(draft.fr.corps.trim() || draft.fr.quote_text.trim()))
-        throw new Error("Renseignez le nom affiché et le texte du témoignage en français.");
+        throw new FormValidationError({
+          nom_affiche: !draft.fr.auteur.trim() ? "Renseignez le nom affiché." : "",
+          texte_fr: !(draft.fr.corps.trim() || draft.fr.quote_text.trim())
+            ? "Renseignez le texte du témoignage en français."
+            : "",
+        });
       const body: Partial<Temoignage> = {
         type: d.type,
         has_detail: d.has_detail,
@@ -117,9 +130,12 @@ export function TemoignageEditPage() {
         ville_contact: d.ville_contact,
         traductions: [d.fr, d.en].filter((t) => t.auteur || t.titre || t.corps || t.quote_text),
       };
-      return isNew ? temoignagesApi.create(body) : temoignagesApi.update(slug as string, body);
+      return isNew
+        ? temoignagesApi.create(body)
+        : temoignagesApi.update(slug as string, body, options);
     },
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       setDirty(false);
       queryClient.setQueryData(["temoignage", saved.slug], saved);
       void queryClient.invalidateQueries({ queryKey: ["temoignages"] });
@@ -128,17 +144,17 @@ export function TemoignageEditPage() {
   });
 
   const imageUploadMutation = useMutation({
-    mutationFn: (file: File) => temoignagesApi.uploadImage(slug as string, file),
+    mutationFn: (file: File) => temoignagesApi.uploadImage(slug as string, file, options),
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       queryClient.setQueryData(["temoignage", saved.slug], saved);
     },
   });
 
-  const saveError = saveMutation.error instanceof Error ? saveMutation.error : null;
-
   const approuver = useMutation({
-    mutationFn: () => temoignagesApi.approuver(slug as string),
-    onSuccess: () => {
+    mutationFn: () => temoignagesApi.approuver(slug as string, options),
+    onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       setDecision(null);
       void queryClient.invalidateQueries({ queryKey: ["temoignage", slug] });
       void queryClient.invalidateQueries({ queryKey: ["temoignages"] });
@@ -146,8 +162,9 @@ export function TemoignageEditPage() {
   });
 
   const rejeter = useMutation({
-    mutationFn: () => temoignagesApi.rejeter(slug as string, motifRejet),
-    onSuccess: () => {
+    mutationFn: () => temoignagesApi.rejeter(slug as string, motifRejet, options),
+    onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       setDecision(null);
       void queryClient.invalidateQueries({ queryKey: ["temoignage", slug] });
       void queryClient.invalidateQueries({ queryKey: ["temoignages"] });
@@ -155,8 +172,9 @@ export function TemoignageEditPage() {
   });
 
   const enRevue = useMutation({
-    mutationFn: () => temoignagesApi.marquerEnRevue(slug as string),
-    onSuccess: () => {
+    mutationFn: () => temoignagesApi.marquerEnRevue(slug as string, options),
+    onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       setDecision(null);
       void queryClient.invalidateQueries({ queryKey: ["temoignage", slug] });
       void queryClient.invalidateQueries({ queryKey: ["temoignages"] });
@@ -195,7 +213,11 @@ export function TemoignageEditPage() {
     rejeter.isPending ||
     enRevue.isPending;
   const actionError =
-    approuver.error || rejeter.error || enRevue.error || imageUploadMutation.error;
+    saveMutation.error ||
+    approuver.error ||
+    rejeter.error ||
+    enRevue.error ||
+    imageUploadMutation.error;
   const updateField = <K extends keyof DraftState>(key: K, value: DraftState[K]) => {
     setDirty(true);
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -228,11 +250,7 @@ export function TemoignageEditPage() {
         actions={
           <div className={common.actions}>
             {t && <StatusBadge statut={t.statut} />}
-            <Button
-              variant="primary"
-              onClick={() => saveMutation.mutate()}
-              disabled={busy || published}
-            >
+            <Button variant="primary" onClick={() => saveMutation.mutate()} disabled={busy}>
               {saveMutation.isPending ? "Enregistrement…" : isNew ? "Créer" : "Enregistrer"}
             </Button>
             {t && access.canManage && (
@@ -270,26 +288,23 @@ export function TemoignageEditPage() {
 
       <PageBody>
         <div className={common.editor}>
-          {published ? (
-            <p className={common.notice}>
-              Ce témoignage est publié. La fiche est en lecture seule.
-            </p>
-          ) : (
-            <p role="status" className={common.notice}>
-              {dirty
-                ? "Modifications non enregistrées. Enregistrez avant de poursuivre la relecture."
-                : saveMutation.isSuccess
-                  ? "Modifications enregistrées."
-                  : "Préparez le texte, enregistrez vos modifications, puis passez à la relecture."}
-            </p>
-          )}
+          <p role="status" className={common.notice}>
+            {publicationNotice(t, dirty, saveMutation.isSuccess)}
+          </p>
           <ActionError error={actionError} />
+          <DiscardRevision
+            item={t}
+            endpoint={`/temoignages/admin/${slug}/`}
+            listPath="/temoignages"
+            busy={busy}
+            version={editingVersion ?? 0}
+          />
           {t?.motif_rejet && (
             <p className={common.notice}>
               <strong>Motif de la décision :</strong> {t.motif_rejet}
             </p>
           )}
-          <fieldset disabled={published || busy} className={common.editor}>
+          <fieldset disabled={busy} className={common.editor}>
             {t && t.source === "soumission_publique" && (
               <section className={common.section}>
                 <span className={common.sectionTitle}>Message reçu · original conservé</span>
@@ -361,12 +376,6 @@ export function TemoignageEditPage() {
                   </div>
                 )}
               </section>
-            )}
-
-            {saveError && (
-              <div className={common.errorBox} role="alert">
-                <strong>Le serveur a refusé l'enregistrement :</strong> {saveError.message}
-              </div>
             )}
 
             <section className={common.section}>
@@ -476,10 +485,7 @@ export function TemoignageEditPage() {
                         e.target.value = "";
                       }}
                     />
-                    <Button
-                      onClick={() => imageInputRef.current?.click()}
-                      disabled={busy || dirty || published}
-                    >
+                    <Button onClick={() => imageInputRef.current?.click()} disabled={busy || dirty}>
                       {imageUploadMutation.isPending
                         ? "Envoi…"
                         : t.image
@@ -505,7 +511,7 @@ export function TemoignageEditPage() {
             <section className={common.section}>
               <span className={common.sectionTitle}>Texte à publier</span>
               <Tabs
-                readOnly={published}
+                readOnly={false}
                 items={[
                   {
                     value: "fr",
@@ -608,7 +614,7 @@ export function TemoignageEditPage() {
                   disabled={busy || dirty}
                   onClick={() => enRevue.mutate()}
                 >
-                  Passer en relecture
+                  Soumettre à validation
                 </Button>
               )}
               {!access.validator ? (
@@ -624,7 +630,7 @@ export function TemoignageEditPage() {
                   <IdentityCheck />
                 </div>
               ) : null}
-              {(t.statut === "recu" || t.statut === "en_revue") && (
+              {access.validator && (t.statut === "recu" || t.statut === "en_revue") && (
                 <div className={common.row}>
                   <Button
                     variant="primary"
@@ -695,7 +701,7 @@ export function TemoignageEditPage() {
             )}
             <ActionError error={actionError} />
           </Modal>
-          <SaveFooter onSave={() => saveMutation.mutate()} pending={busy} disabled={published} />
+          <SaveFooter onSave={() => saveMutation.mutate()} pending={busy} disabled={false} />
         </div>
       </PageBody>
     </>

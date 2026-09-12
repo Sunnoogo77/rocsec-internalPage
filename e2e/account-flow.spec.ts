@@ -142,6 +142,7 @@ test("le récapitulatif n’apparaît qu’après succès et copie les accès sa
       username: account.username,
       password: initialPassword,
       role: "editeur",
+      mfa_required: false,
     });
     await responseGate;
     await route.fulfill({ status: 201, json: account });
@@ -402,4 +403,113 @@ test("une suppression de personne en cours garde la fenêtre ouverte et affiche 
   await modal.getByRole("button", { name: "Annuler", exact: true }).click();
   await expect(modal).not.toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Paul Exemple" })).toBeVisible();
+});
+
+test("le superadministrateur voit l’activité et modifie les accès d’un autre compte sans modifier les siens", async ({
+  page,
+}) => {
+  let managed = {
+    ...account,
+    is_superuser: false,
+    mfa_required: false,
+    mfa_setup_required: false,
+    has_2fa: false,
+    last_login: "2026-09-12T12:34:00Z",
+    last_activity_at: "2026-09-12T13:45:00Z",
+    last_activity_action: "account_created",
+    last_activity_target: "synthetic-account",
+  };
+  let patch: Record<string, unknown> | undefined;
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/csrf/")) return route.fulfill({ json: { csrf: "synthetic-csrf" } });
+    if (path.endsWith("/me/"))
+      return route.fulfill({ json: { ...admin, mfa_required: true, mfa_setup_required: false } });
+    if (path.endsWith("/step-up/"))
+      return route.fulfill({ json: { is_recent: true, seconds_remaining: 7200 } });
+    if (route.request().method() === "PATCH") {
+      patch = route.request().postDataJSON();
+      managed = { ...managed, ...patch };
+      return route.fulfill({ json: managed });
+    }
+    return route.fulfill({
+      json: {
+        count: 2,
+        results: [{ ...admin, is_active: true, mfa_required: true, last_login: null }, managed],
+      },
+    });
+  });
+  await page.goto("/comptes");
+  await expect(page.getByText(/Dernière connexion :.*2026/)).toBeVisible();
+  await expect(page.getByText(/Dernière action : Création d’un compte/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Modifier les accès", exact: true })).toHaveCount(
+    1,
+  );
+  await page.getByRole("button", { name: "Modifier les accès", exact: true }).click();
+  const modal = page.getByRole("dialog", { name: `Modifier l’accès de ${account.username}` });
+  await modal.getByLabel("Niveau d’accès").selectOption("validateur");
+  await modal.getByRole("switch", { name: "Exiger la double authentification" }).click();
+  await modal.getByRole("switch", { name: "Compte actif" }).click();
+  await modal.getByRole("button", { name: "Enregistrer les accès" }).click();
+  await expect(modal).not.toBeVisible();
+  expect(patch).toEqual({ role: "validateur", is_active: false, mfa_required: true });
+  await expect(page.getByRole("status")).toContainText(
+    `Les accès de ${account.username} ont été enregistrés.`,
+  );
+});
+
+test("la réinitialisation d’un mot de passe produit un récapitulatif uniquement après confirmation", async ({
+  page,
+}) => {
+  const managed = { ...account, is_superuser: false, mfa_required: false, has_2fa: false };
+  let writes = 0;
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/csrf/")) return route.fulfill({ json: { csrf: "synthetic-csrf" } });
+    if (path.endsWith("/me/")) return route.fulfill({ json: admin });
+    if (path.endsWith("/step-up/")) return route.fulfill({ json: { is_recent: true } });
+    if (route.request().method() === "PATCH") {
+      writes++;
+      expect(route.request().postDataJSON().password).toBe(initialPassword);
+      if (writes === 1)
+        return route.fulfill({
+          status: 400,
+          json: {
+            error: {
+              code: "validation_error",
+              message: "Modifiez le mot de passe provisoire.",
+              details: {},
+            },
+          },
+        });
+      return route.fulfill({ json: managed });
+    }
+    return route.fulfill({ json: { count: 1, results: [managed] } });
+  });
+  await page.goto("/comptes");
+  await page.getByRole("button", { name: "Modifier les accès", exact: true }).click();
+  const modal = page.getByRole("dialog", { name: `Modifier l’accès de ${account.username}` });
+  await modal.getByLabel("Nouveau mot de passe provisoire (facultatif)").fill(initialPassword);
+  await modal.getByRole("button", { name: "Enregistrer les accès" }).click();
+  await expect(modal.getByRole("alert")).toContainText("Modifiez le mot de passe provisoire.");
+  await expect(modal.getByLabel("Nouveau mot de passe provisoire (facultatif)")).toHaveValue(
+    initialPassword,
+  );
+  await modal.getByRole("button", { name: "Enregistrer les accès" }).click();
+  const receipt = page.getByRole("dialog", {
+    name: "Mot de passe provisoire renouvelé",
+    exact: true,
+  });
+  await expect(receipt).toBeVisible();
+  await expect(receipt.getByLabel("Mot de passe provisoire à transmettre")).toHaveValue(
+    initialPassword,
+  );
+  expect(
+    await page.evaluate(
+      () =>
+        `${JSON.stringify(localStorage)} ${JSON.stringify(sessionStorage)} ${JSON.stringify(history.state)}`,
+    ),
+  ).not.toContain(initialPassword);
+  await receipt.getByRole("button", { name: "Terminer", exact: true }).click();
+  await expect(receipt).toHaveCount(0);
 });

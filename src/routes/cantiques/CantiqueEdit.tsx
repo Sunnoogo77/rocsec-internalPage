@@ -1,3 +1,6 @@
+import { DiscardRevision } from "@/components/forms/DiscardRevision";
+import { DateField } from "@/components/forms/DateTimeField";
+import { hasLivePublication, publicationNotice, revisionOptions } from "@/lib/publication";
 import { ActionError } from "@/components/ui/ActionError";
 import { SaveFooter } from "@/components/forms/SaveFooter";
 import { usePeople } from "@/lib/people";
@@ -19,7 +22,6 @@ import {
   famillesCantiqueApi,
   groupesPersonnesApi,
 } from "@/api";
-import { HttpError } from "@/api/client";
 import type {
   Cantique,
   CantiqueTraduction,
@@ -472,25 +474,6 @@ function emptyDraft(): DraftState {
   };
 }
 
-type FieldErrors = Record<string, string>;
-
-function flattenDrfErrors(details: unknown): { fields: FieldErrors; nonField: string[] } {
-  const fields: FieldErrors = {};
-  const nonField: string[] = [];
-  if (!details || typeof details !== "object") return { fields, nonField };
-  for (const [key, value] of Object.entries(details as Record<string, unknown>)) {
-    if (Array.isArray(value)) {
-      const text = value.map(String).join(" ; ");
-      if (key === "non_field_errors") nonField.push(text);
-      else fields[key] = text;
-    } else if (typeof value === "string") {
-      if (key === "non_field_errors") nonField.push(value);
-      else fields[key] = value;
-    }
-  }
-  return { fields, nonField };
-}
-
 export function CantiqueEditPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -635,6 +618,11 @@ export function CantiqueEditPage() {
 
   const [clientError, setClientError] = useState<string | null>(null);
 
+  const [editingVersion, setEditingVersion] = useState<number | null>(null);
+  if (query.data && editingVersion === null) {
+    setEditingVersion(query.data.revision_version ?? query.data.revision?.version ?? 0);
+  }
+  const options = revisionOptions({ statut: "", revision_version: editingVersion ?? 0 });
   const access = useWorkflowAccess(query.data);
   const draftGuard = useDraftGuard(draft, hydrated);
 
@@ -663,9 +651,12 @@ export function CantiqueEditPage() {
         est_vedette: draft.est_vedette,
         traductions: [draft.fr].filter((t) => t.titre || t.lyrics.length > 0),
       };
-      return isNew ? cantiquesApi.create(payload) : cantiquesApi.update(slug as string, payload);
+      return isNew
+        ? cantiquesApi.create(payload)
+        : cantiquesApi.update(slug as string, payload, options);
     },
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       draftGuard.markSaved();
       // Pré-remplit le cache pour la nouvelle page d'édition (évite un flash de loading
       // après la redirection, et donne accès à `traductions` / `roles_detail` tout de suite).
@@ -685,12 +676,6 @@ export function CantiqueEditPage() {
     save.mutate();
   };
 
-  const serverError = save.error instanceof HttpError ? save.error : null;
-  const { fields: fieldErrors, nonField: nonFieldErrors } = useMemo(
-    () => (serverError ? flattenDrfErrors(serverError.details) : { fields: {}, nonField: [] }),
-    [serverError],
-  );
-
   const update = <K extends keyof DraftState>(key: K, value: DraftState[K]) =>
     setDraft((prev) => ({ ...prev, [key]: value }));
 
@@ -704,30 +689,39 @@ export function CantiqueEditPage() {
   // Le backend valide la transition côté serveur, on n'affiche que les boutons applicables au
   // statut courant pour ne pas inviter l'utilisateur à des actions qui seront rejetées.
   const soumettre = useMutation({
-    mutationFn: () => cantiquesApi.soumettre(slug as string),
-    onSuccess: (saved) => queryClient.setQueryData(["cantique", saved.slug], saved),
+    mutationFn: () => cantiquesApi.soumettre(slug as string, options),
+    onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
+      return queryClient.setQueryData(["cantique", saved.slug], saved);
+    },
   });
   const publier = useMutation({
-    mutationFn: () => cantiquesApi.publier(slug as string),
+    mutationFn: () => cantiquesApi.publier(slug as string, options),
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       queryClient.setQueryData(["cantique", saved.slug], saved);
       void queryClient.invalidateQueries({ queryKey: ["cantiques-list"] });
     },
   });
   const rejeter = useMutation({
-    mutationFn: () => cantiquesApi.rejeter(slug as string),
-    onSuccess: (saved) => queryClient.setQueryData(["cantique", saved.slug], saved),
+    mutationFn: () => cantiquesApi.rejeter(slug as string, options),
+    onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
+      return queryClient.setQueryData(["cantique", saved.slug], saved);
+    },
   });
   const archiver = useMutation({
-    mutationFn: () => cantiquesApi.archiver(slug as string),
+    mutationFn: () => cantiquesApi.archiver(slug as string, options),
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       queryClient.setQueryData(["cantique", saved.slug], saved);
       void queryClient.invalidateQueries({ queryKey: ["cantiques-list"] });
     },
   });
   const desarchiver = useMutation({
-    mutationFn: () => cantiquesApi.desarchiver(slug as string),
+    mutationFn: () => cantiquesApi.desarchiver(slug as string, options),
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       queryClient.setQueryData(["cantique", saved.slug], saved);
       void queryClient.invalidateQueries({ queryKey: ["cantiques-list"] });
     },
@@ -756,7 +750,7 @@ export function CantiqueEditPage() {
     archiver.error ||
     desarchiver.error ||
     supprimer.error;
-  const locked = cantique?.statut === "publie";
+  const live = hasLivePublication(cantique);
   const busy = workflowPending || save.isPending;
   if (!isNew && !query.data)
     return (
@@ -793,10 +787,10 @@ export function CantiqueEditPage() {
         actions={
           <div className={common.actions}>
             {cantique ? <StatusBadge statut={cantique.statut as StatutWorkflow} /> : null}
-            <Button variant="primary" onClick={handleSubmit} disabled={busy || locked}>
+            <Button variant="primary" onClick={handleSubmit} disabled={busy}>
               {save.isPending ? "Enregistrement…" : "Enregistrer"}
             </Button>
-            {!isNew && statut === "brouillon" ? (
+            {!isNew && ["brouillon", "rejete"].includes(statut ?? "") && !access.validator ? (
               <Button
                 variant="ghost"
                 onClick={() => soumettre.mutate()}
@@ -805,7 +799,9 @@ export function CantiqueEditPage() {
                 Soumettre à validation
               </Button>
             ) : null}
-            {!isNew && statut === "en_revue" ? (
+            {!isNew &&
+            ["brouillon", "en_revue", "rejete"].includes(statut ?? "") &&
+            access.validator ? (
               <Button
                 variant="success"
                 onClick={() => {
@@ -814,7 +810,7 @@ export function CantiqueEditPage() {
                 }}
                 disabled={busy || draftGuard.dirty || !access.canValidate}
               >
-                {publier.isPending ? "Publication…" : "Publier"}
+                {publier.isPending ? "Publication…" : live ? "Publier la correction" : "Publier"}
               </Button>
             ) : null}
             {!isNew && statut === "en_revue" ? (
@@ -826,7 +822,7 @@ export function CantiqueEditPage() {
                 Rejeter
               </Button>
             ) : null}
-            {!isNew && statut === "publie" ? (
+            {!isNew && live ? (
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -855,7 +851,7 @@ export function CantiqueEditPage() {
                     supprimer.mutate();
                   }
                 }}
-                disabled={busy || locked || !access.canManage}
+                disabled={busy || !access.canManage}
               >
                 Supprimer
               </Button>
@@ -866,14 +862,15 @@ export function CantiqueEditPage() {
       <PageBody>
         <div className={common.editor}>
           <ActionError error={operationError} />
+          <DiscardRevision
+            item={cantique}
+            endpoint={`/cantiques/admin/${slug}/`}
+            listPath="/cantiques"
+            busy={busy}
+            version={editingVersion ?? 0}
+          />
           <p className={common.notice} role="status">
-            {locked
-              ? "Contenu publié : la fiche est en lecture seule. Un validateur peut l’archiver pour permettre sa modification."
-              : draftGuard.dirty
-                ? "Modifications non enregistrées. Enregistrez avant de soumettre ou valider le contenu."
-                : save.isSuccess
-                  ? "Modifications enregistrées."
-                  : "Préparez le contenu et enregistrez-le avant de le soumettre à la validation."}
+            {publicationNotice(cantique, draftGuard.dirty, save.isSuccess)}
           </p>
           {!isNew &&
             (!access.validator ? (
@@ -889,32 +886,10 @@ export function CantiqueEditPage() {
                 {!access.recent && <IdentityCheck />}
               </div>
             ))}
-          <fieldset disabled={locked || busy} className={common.editor}>
+          <fieldset disabled={busy} className={common.editor}>
             {clientError ? (
               <div className={common.errorBox} role="alert">
                 <strong>Champ requis manquant :</strong> {clientError}
-              </div>
-            ) : null}
-
-            {serverError ? (
-              <div className={common.errorBox} role="alert">
-                <strong>Le serveur a refusé l'enregistrement :</strong> {serverError.message}
-                {nonFieldErrors.length > 0 ? (
-                  <ul style={{ margin: "8px 0 0 20px" }}>
-                    {nonFieldErrors.map((m, i) => (
-                      <li key={i}>{m}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                {Object.keys(fieldErrors).length > 0 ? (
-                  <ul style={{ margin: "8px 0 0 20px" }}>
-                    {Object.entries(fieldErrors).map(([field, msg]) => (
-                      <li key={field}>
-                        <em>{field}</em> : {msg}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
               </div>
             ) : null}
 
@@ -1047,9 +1022,8 @@ export function CantiqueEditPage() {
                   const heritedFromEvent = ev?.date_evenement ?? null;
                   if (heritedFromEvent) {
                     return (
-                      <Input
+                      <DateField
                         label="Date d'enregistrement"
-                        type="date"
                         value={heritedFromEvent}
                         readOnly
                         help={`Date héritée de l'événement « ${ev?.nom_fr ?? ""} ». Pour la changer, modifie la date côté événement (« Gérer les événements »).`}
@@ -1057,11 +1031,10 @@ export function CantiqueEditPage() {
                     );
                   }
                   return (
-                    <Input
+                    <DateField
                       label="Date d'enregistrement"
-                      type="date"
                       value={draft.date_enregistrement}
-                      onChange={(event) => update("date_enregistrement", event.target.value)}
+                      onChange={(value) => update("date_enregistrement", value)}
                       help="Sélectionne la date dans le calendrier. Laisser vide si pas connue. Si tu rattaches un événement avec une date, cette date sera héritée automatiquement."
                     />
                   );
@@ -1160,7 +1133,7 @@ export function CantiqueEditPage() {
               </div>
             </section>
           </fieldset>
-          <SaveFooter onSave={handleSubmit} pending={busy} disabled={locked} />
+          <SaveFooter onSave={handleSubmit} pending={busy} disabled={false} />
         </div>
       </PageBody>
     </>

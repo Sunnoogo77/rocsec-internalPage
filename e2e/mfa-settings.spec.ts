@@ -14,20 +14,24 @@ const user = {
 const secret = "JBSWY3DPEHPK3PXP";
 const otpUrl = `otpauth://totp/RST%20Admin:equipe.test?secret=${secret}&issuer=RST%20Admin`;
 
-async function mockSettings(page: Page, configured = false, refreshDelay = 0) {
-  const state = { authenticated: true, recent: false, verified: 0, meReads: 0, configured };
+async function mockSettings(page: Page, configured = false) {
+  const state = { authenticated: true, recent: configured, verified: 0, meReads: 0, configured };
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const method = route.request().method();
     if (path.endsWith("/csrf/")) return route.fulfill({ json: { csrf: "synthetic-csrf" } });
     if (path.endsWith("/me/")) {
       state.meReads++;
-      if (!state.authenticated && refreshDelay) {
-        await new Promise((resolve) => setTimeout(resolve, refreshDelay));
-      }
       return route.fulfill({
         status: state.authenticated ? 200 : 403,
-        json: state.authenticated ? { ...user, has_2fa: state.configured } : {},
+        json: state.authenticated
+          ? {
+              ...user,
+              has_2fa: state.configured,
+              mfa_required: true,
+              mfa_setup_required: !state.configured,
+            }
+          : {},
       });
     }
     if (path.endsWith("/login/")) {
@@ -35,7 +39,14 @@ async function mockSettings(page: Page, configured = false, refreshDelay = 0) {
         return route.fulfill({ status: 400, json: { requires_otp: true, detail: "Code requis." } });
       }
       state.authenticated = true;
-      return route.fulfill({ json: { ...user, has_2fa: state.configured } });
+      return route.fulfill({
+        json: {
+          ...user,
+          has_2fa: state.configured,
+          mfa_required: true,
+          mfa_setup_required: !state.configured,
+        },
+      });
     }
     if (path.endsWith("/enable/"))
       return route.fulfill({ json: { secret_b32: secret, otpauth_url: otpUrl } });
@@ -43,8 +54,9 @@ async function mockSettings(page: Page, configured = false, refreshDelay = 0) {
       state.verified++;
       if (route.request().postDataJSON().token !== "123456")
         return route.fulfill({ status: 400, json: { detail: "Code TOTP invalide." } });
-      state.authenticated = false;
+      state.authenticated = true;
       state.configured = true;
+      state.recent = true;
       return route.fulfill({ json: { status: "ok", has_2fa: true } });
     }
     if (path.endsWith("/step-up/")) {
@@ -101,7 +113,7 @@ test("configuration guidée avec QR local et clé manuelle masquée par défaut"
   await page.getByText("Je ne peux pas scanner le QR code", { exact: true }).click();
   await expect(page.locator(".enrollmentSecret")).toHaveText(secret);
   await page.getByRole("button", { name: "Copier la clé", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Clé copiée");
+  await expect(page.getByText(/Clé copiée/)).toBeVisible();
   expect(await page.evaluate(() => (window as Window & { copiedKey?: string }).copiedKey)).toBe(
     secret,
   );
@@ -119,33 +131,30 @@ test("configuration guidée avec QR local et clé manuelle masquée par défaut"
   await expect(page.locator(".enrollmentSecret")).toHaveCount(0);
 });
 
-test("un code rejeté reste visible puis l’activation confirme la reconnexion", async ({ page }) => {
-  const state = await mockSettings(page, false, 500);
+test("un code rejeté reste visible puis l’activation vérifie directement la connexion", async ({
+  page,
+}) => {
+  const state = await mockSettings(page, false);
   await page.goto("/reglages");
   await page.getByRole("button", { name: "Configurer la double authentification" }).click();
   await page.getByLabel("Code à six chiffres").fill("111111");
-  await page.getByRole("button", { name: "Activer et me reconnecter" }).click();
+  await page.getByRole("button", { name: "Activer et continuer" }).click();
   await expect(page.getByRole("alert")).toContainText("Le code n’a pas été accepté.");
   await expect(
     page.getByRole("img", { name: "QR code pour configurer la double authentification" }),
   ).toBeVisible();
   await page.getByLabel("Code à six chiffres").fill("123456");
   const meReadsBeforeActivation = state.meReads;
-  await page.getByRole("button", { name: "Activer et me reconnecter" }).click();
-  await expect(page).toHaveURL(/\/login$/);
-  await expect(page.getByRole("status")).toContainText("La double authentification est activée.");
-  await expect(page.getByRole("button", { name: "Se connecter", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Activer et continuer" }).click();
+  await expect(page).toHaveURL(/\/reglages$/);
+  await expect(
+    page.getByText(/La double authentification est activée. Votre connexion est vérifiée/),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Se connecter", exact: true })).toHaveCount(0);
   await expect(page.locator(".enrollmentSecret")).toHaveCount(0);
+  await expect(page.getByLabel("Code de vérification")).toHaveCount(0);
   expect(state.verified).toBe(2);
-  expect(state.meReads).toBe(meReadsBeforeActivation);
-  await page.getByRole("textbox", { name: "Nom d’utilisateur", exact: true }).fill(user.username);
-  await page.getByLabel(/^Mot de passe/).fill("Synthetic-password.123!");
-  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
-  await page.getByRole("textbox", { name: "Code de vérification", exact: true }).fill("654321");
-  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
-  await expect(page).toHaveURL(/\/reglages#securite$/);
-  await expect(page.getByRole("heading", { name: "Mon compte", exact: true })).toBeVisible();
-  expect(state.meReads).toBe(meReadsBeforeActivation);
+  expect(state.meReads).toBeGreaterThan(meReadsBeforeActivation);
 });
 
 test("une réponse de configuration tardive ne réaffiche pas le QR après avoir quitté la page", async ({
@@ -188,25 +197,42 @@ test("une réponse de configuration tardive ne réaffiche pas le QR après avoir
   ).toBeVisible();
 });
 
-test("la vérification explique le refus puis propose de reprendre l’action", async ({ page }) => {
+test("la connexion vérifiée reste valable et la MFA obligatoire ne peut pas être désactivée", async ({
+  page,
+}) => {
+  await page.clock.install();
   await mockSettings(page, true);
   await page.addInitScript(() => history.replaceState({ usr: { returnTo: "/personnes" } }, ""));
   await page.goto("/reglages#securite");
-  await expect(
-    page.getByText(/Si vous venez d’utiliser un code pour vous connecter/),
-  ).toBeVisible();
-  await page.getByLabel("Code de vérification").fill("111111");
-  await page.getByRole("button", { name: "Vérifier mon identité", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("La vérification n’a pas abouti.");
-  await page.getByLabel("Code de vérification").fill("654321");
-  await page.getByRole("button", { name: "Vérifier mon identité", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Votre identité est vérifiée.");
+  await page.clock.fastForward(30 * 60 * 1000);
+  await expect(page.getByRole("status")).toContainText("Votre identité est vérifiée.");
+  await expect(page.getByLabel("Code de vérification")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Reprendre mon action" })).toHaveAttribute(
     "href",
     "/personnes",
   );
-  await page.getByText("Désactiver la double authentification", { exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Désactiver et terminer mes sessions" }),
-  ).toBeEnabled();
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(/obligatoire pour votre compte et ne peut pas être désactivée/),
+  ).toBeVisible();
+});
+
+test("la configuration obligatoire est imposée avant les contenus, après le mot de passe temporaire", async ({
+  page,
+}) => {
+  await mockSettings(page, false);
+  await page.goto("/personnes");
+  await expect(page).toHaveURL(/\/reglages#securite$/);
+  await expect(page.getByText(/Configurez-la ci-dessous pour accéder/)).toBeVisible();
+  await page.route("**/auth/me/", (route) =>
+    route.fulfill({
+      json: { ...user, mfa_required: true, mfa_setup_required: true, must_change_password: true },
+    }),
+  );
+  await page.goto("/personnes");
+  await expect(page).toHaveURL(/\/changer-mot-de-passe$/);
+  await expect(page.getByRole("heading", { name: "Choisissez votre mot de passe" })).toBeVisible();
 });

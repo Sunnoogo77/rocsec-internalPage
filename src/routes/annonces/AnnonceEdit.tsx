@@ -1,3 +1,8 @@
+import { DiscardRevision } from "@/components/forms/DiscardRevision";
+import { DateTimeField } from "@/components/forms/DateTimeField";
+import { FormValidationError } from "@/lib/formValidation";
+import { churchNow, toChurchDateTime, churchDateTimeToISO } from "@/lib/churchTime";
+import { hasLivePublication, publicationNotice, revisionOptions } from "@/lib/publication";
 import { ActionError } from "@/components/ui/ActionError";
 import { SaveFooter } from "@/components/forms/SaveFooter";
 import { QueryFeedback } from "@/components/ui/QueryFeedback";
@@ -6,7 +11,6 @@ import { useDraftGuard } from "@/lib/useDraftGuard";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import dayjs from "@/lib/dayjs";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { PageBody, PageHead } from "@/components/layout/MainLayout";
 import { Button, Input, Select, StatusBadge, Tabs, Textarea, Toggle } from "@/components/ui";
@@ -41,6 +45,7 @@ function ContentBlocksEditor({
   onChange: (next: ContentBlock[]) => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<unknown>(null);
 
   const addParagraph = () => onChange([...blocks, { kind: "paragraph", text: "" }]);
 
@@ -48,14 +53,14 @@ function ContentBlocksEditor({
 
   const addImageFromFile = async (file: File) => {
     setUploading(true);
+    setUploadError(null);
     try {
       const media = await mediasApi.upload(file);
       // On utilise la variante "full" (URL absolue) comme src du bloc image.
       const src = media.variantes.full || media.variantes.medium || media.url || "";
       onChange([...blocks, { kind: "image", src, alt: media.nom || "", size: "wide" }]);
     } catch (err) {
-      console.error("[ContentBlocks] upload image échoué :", err);
-      window.alert("L'upload de l'image a échoué. Réessaie.");
+      setUploadError(err);
     } finally {
       setUploading(false);
     }
@@ -76,6 +81,7 @@ function ContentBlocksEditor({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <ActionError error={uploadError} title="L’image n’a pas été ajoutée." />
       {blocks.length === 0 ? (
         <p style={{ fontSize: 13, color: "var(--gray-500)", margin: 0 }}>
           Aucun bloc. Le compte-rendu se rédige après l'événement : ajoute des paragraphes et
@@ -280,7 +286,7 @@ function emptyDraft(): DraftState {
     slug: "",
     type: "reunion",
     sous_type: "",
-    date_debut: dayjs().format("YYYY-MM-DDTHH:mm"),
+    date_debut: churchNow().format("YYYY-MM-DDTHH:mm"),
     date_fin: "",
     lieu: "",
     cta_url: "",
@@ -311,8 +317,8 @@ export function AnnonceEditPage() {
       slug: query.data.slug,
       type: query.data.type,
       sous_type: query.data.sous_type,
-      date_debut: dayjs(query.data.date_debut).format("YYYY-MM-DDTHH:mm"),
-      date_fin: query.data.date_fin ? dayjs(query.data.date_fin).format("YYYY-MM-DDTHH:mm") : "",
+      date_debut: toChurchDateTime(query.data.date_debut),
+      date_fin: query.data.date_fin ? toChurchDateTime(query.data.date_fin) : "",
       lieu: query.data.lieu,
       cta_url: query.data.cta_url,
       est_phare: query.data.est_phare,
@@ -323,26 +329,40 @@ export function AnnonceEditPage() {
     setHydrated(true);
   }
 
+  const [editingVersion, setEditingVersion] = useState<number | null>(null);
+  if (query.data && editingVersion === null) {
+    setEditingVersion(query.data.revision_version ?? query.data.revision?.version ?? 0);
+  }
+  const options = revisionOptions({ statut: "", revision_version: editingVersion ?? 0 });
   const access = useWorkflowAccess(query.data);
   const draftGuard = useDraftGuard(draft, hydrated);
 
   const save = useMutation({
     mutationFn: () => {
+      if (!draft.fr.titre.trim())
+        throw new FormValidationError({ titre: "Renseignez le titre en français." });
+      if (draft.date_fin && draft.date_fin < draft.date_debut)
+        throw new FormValidationError({
+          date_fin: "La fin doit être après le début de l’événement.",
+        });
       const payload: Partial<Annonce> = {
         slug: draft.slug || undefined,
         type: draft.type,
         sous_type: draft.sous_type,
-        date_debut: dayjs(draft.date_debut).toISOString(),
-        date_fin: draft.date_fin ? dayjs(draft.date_fin).toISOString() : null,
+        date_debut: churchDateTimeToISO(draft.date_debut, "date_debut"),
+        date_fin: draft.date_fin ? churchDateTimeToISO(draft.date_fin, "date_fin") : null,
         lieu: draft.lieu,
         cta_url: draft.cta_url,
         est_phare: draft.est_phare,
         featured_eyebrow: draft.featured_eyebrow,
         traductions: [draft.fr, draft.en].filter((t) => t.titre || t.description),
       } as Partial<Annonce>;
-      return isNew ? annoncesApi.create(payload) : annoncesApi.update(slug as string, payload);
+      return isNew
+        ? annoncesApi.create(payload)
+        : annoncesApi.update(slug as string, payload, options);
     },
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       draftGuard.markSaved();
       queryClient.setQueryData(["annonce", saved.slug], saved);
       void queryClient.invalidateQueries({ queryKey: ["annonces-list"] });
@@ -351,8 +371,9 @@ export function AnnonceEditPage() {
   });
 
   const afficheUpload = useMutation({
-    mutationFn: (file: File) => annoncesApi.uploadAffiche(slug as string, file),
+    mutationFn: (file: File) => annoncesApi.uploadAffiche(slug as string, file, options),
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       queryClient.setQueryData(["annonce", saved.slug], saved);
       void queryClient.invalidateQueries({ queryKey: ["annonce", slug] });
     },
@@ -368,23 +389,31 @@ export function AnnonceEditPage() {
   const statut = annonce?.statut as StatutWorkflow | undefined;
 
   const soumettre = useMutation({
-    mutationFn: () => annoncesApi.soumettre(slug as string),
-    onSuccess: (saved) => queryClient.setQueryData(["annonce", saved.slug], saved),
+    mutationFn: () => annoncesApi.soumettre(slug as string, options),
+    onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
+      return queryClient.setQueryData(["annonce", saved.slug], saved);
+    },
   });
   const publier = useMutation({
-    mutationFn: () => annoncesApi.publier(slug as string),
+    mutationFn: () => annoncesApi.publier(slug as string, options),
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       queryClient.setQueryData(["annonce", saved.slug], saved);
       void queryClient.invalidateQueries({ queryKey: ["annonces-list"] });
     },
   });
   const rejeter = useMutation({
-    mutationFn: () => annoncesApi.rejeter(slug as string),
-    onSuccess: (saved) => queryClient.setQueryData(["annonce", saved.slug], saved),
+    mutationFn: () => annoncesApi.rejeter(slug as string, options),
+    onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
+      return queryClient.setQueryData(["annonce", saved.slug], saved);
+    },
   });
   const archiver = useMutation({
-    mutationFn: () => annoncesApi.archiver(slug as string),
+    mutationFn: () => annoncesApi.archiver(slug as string, options),
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       queryClient.setQueryData(["annonce", saved.slug], saved);
       void queryClient.invalidateQueries({ queryKey: ["annonces-list"] });
     },
@@ -399,8 +428,8 @@ export function AnnonceEditPage() {
     rejeter.error ||
     archiver.error ||
     afficheUpload.error;
-  const locked = annonce?.statut === "publie";
-  const busy = wfPending || save.isPending;
+  const live = hasLivePublication(annonce);
+  const busy = wfPending || save.isPending || afficheUpload.isPending;
   if (!isNew && !query.data)
     return (
       <>
@@ -429,10 +458,10 @@ export function AnnonceEditPage() {
         actions={
           <div className={common.actions}>
             {annonce ? <StatusBadge statut={annonce.statut as StatutWorkflow} /> : null}
-            <Button variant="primary" onClick={() => save.mutate()} disabled={busy || locked}>
+            <Button variant="primary" onClick={() => save.mutate()} disabled={busy}>
               Enregistrer
             </Button>
-            {!isNew && statut === "brouillon" ? (
+            {!isNew && ["brouillon", "rejete"].includes(statut ?? "") && !access.validator ? (
               <Button
                 variant="ghost"
                 onClick={() => soumettre.mutate()}
@@ -441,7 +470,9 @@ export function AnnonceEditPage() {
                 Soumettre à validation
               </Button>
             ) : null}
-            {!isNew && statut === "en_revue" ? (
+            {!isNew &&
+            ["brouillon", "en_revue", "rejete"].includes(statut ?? "") &&
+            access.validator ? (
               <Button
                 variant="success"
                 onClick={() => {
@@ -450,7 +481,7 @@ export function AnnonceEditPage() {
                 }}
                 disabled={busy || draftGuard.dirty || !access.canValidate}
               >
-                {publier.isPending ? "Publication…" : "Publier"}
+                {publier.isPending ? "Publication…" : live ? "Publier la correction" : "Publier"}
               </Button>
             ) : null}
             {!isNew && statut === "en_revue" ? (
@@ -462,7 +493,7 @@ export function AnnonceEditPage() {
                 Rejeter
               </Button>
             ) : null}
-            {!isNew && statut === "publie" ? (
+            {!isNew && live ? (
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -480,14 +511,15 @@ export function AnnonceEditPage() {
       <PageBody>
         <div className={common.editor}>
           <ActionError error={operationError} />
+          <DiscardRevision
+            item={annonce}
+            endpoint={`/annonces/admin/${slug}/`}
+            listPath="/annonces"
+            busy={busy}
+            version={editingVersion ?? 0}
+          />
           <p className={common.notice} role="status">
-            {locked
-              ? "Contenu publié : la fiche est en lecture seule. Un validateur peut l’archiver pour permettre sa modification."
-              : draftGuard.dirty
-                ? "Modifications non enregistrées. Enregistrez avant de soumettre ou valider le contenu."
-                : save.isSuccess
-                  ? "Modifications enregistrées."
-                  : "Préparez le contenu et enregistrez-le avant de le soumettre à la validation."}
+            {publicationNotice(annonce, draftGuard.dirty, save.isSuccess)}
           </p>
           {!isNew &&
             (!access.validator ? (
@@ -503,7 +535,7 @@ export function AnnonceEditPage() {
                 {!access.recent && <IdentityCheck />}
               </div>
             ))}
-          <fieldset disabled={locked || busy} className={common.editor}>
+          <fieldset disabled={busy} className={common.editor}>
             <section className={common.section}>
               <span className={common.sectionTitle}>Informations générales</span>
               <div className={common.formGrid}>
@@ -522,18 +554,21 @@ export function AnnonceEditPage() {
                   value={draft.sous_type}
                   onChange={(event) => update("sous_type", event.target.value)}
                 />
-                <Input
-                  label="Date de début"
-                  type="datetime-local"
-                  value={draft.date_debut}
-                  onChange={(event) => update("date_debut", event.target.value)}
-                />
-                <Input
-                  label="Date de fin (facultative)"
-                  type="datetime-local"
-                  value={draft.date_fin}
-                  onChange={(event) => update("date_fin", event.target.value)}
-                />
+                <div className={common.full}>
+                  <DateTimeField
+                    label="Date de début"
+                    value={draft.date_debut}
+                    required
+                    onChange={(value) => update("date_debut", value)}
+                  />
+                </div>
+                <div className={common.full}>
+                  <DateTimeField
+                    label="Date de fin (facultative)"
+                    value={draft.date_fin}
+                    onChange={(value) => update("date_fin", value)}
+                  />
+                </div>
                 <Input
                   label="Lieu"
                   value={draft.lieu}
@@ -563,7 +598,7 @@ export function AnnonceEditPage() {
             <section className={common.section}>
               <span className={common.sectionTitle}>Contenu rédactionnel</span>
               <Tabs
-                readOnly={locked}
+                readOnly={false}
                 items={(["fr", "en"] as const).map((langue) => ({
                   value: langue,
                   label: langue === "fr" ? "Français" : "English",
@@ -710,7 +745,7 @@ export function AnnonceEditPage() {
               />
             </section>
           </fieldset>
-          <SaveFooter onSave={() => save.mutate()} pending={busy} disabled={locked} />
+          <SaveFooter onSave={() => save.mutate()} pending={busy} disabled={false} />
         </div>
       </PageBody>
     </>

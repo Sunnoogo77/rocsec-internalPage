@@ -1,3 +1,13 @@
+import { DiscardRevision } from "@/components/forms/DiscardRevision";
+import { DateTimeField } from "@/components/forms/DateTimeField";
+import {
+  churchNow,
+  toChurchDateTime,
+  churchDateTimeToISO,
+  serviceDefaultTime,
+} from "@/lib/churchTime";
+import { FormValidationError } from "@/lib/formValidation";
+import { hasLivePublication, publicationNotice, revisionOptions } from "@/lib/publication";
 import { ActionError } from "@/components/ui/ActionError";
 import { SaveFooter } from "@/components/forms/SaveFooter";
 import { QueryFeedback } from "@/components/ui/QueryFeedback";
@@ -55,7 +65,7 @@ function blankTraduction(langue: "fr" | "en"): SermonTraduction {
 function blankForm(): FormState {
   return {
     slug: "",
-    date_culte: dayjs().format("YYYY-MM-DDTHH:mm"),
+    date_culte: `${churchNow().format("YYYY-MM-DD")}T09:00`,
     type_culte: "",
     predicateur_id: "",
     serie_id: "",
@@ -77,7 +87,7 @@ function fromSermon(sermon: Sermon): FormState {
   const en = traductions.find((t) => t.langue === "en") ?? blankTraduction("en");
   return {
     slug: sermon.slug,
-    date_culte: dayjs(sermon.date_culte).format("YYYY-MM-DDTHH:mm"),
+    date_culte: toChurchDateTime(sermon.date_culte),
     type_culte: sermon.type_culte_detail?.id ?? sermon.type_culte ?? "",
     predicateur_id:
       typeof sermon.predicateur === "string" ? sermon.predicateur : (sermon.predicateur?.id ?? ""),
@@ -97,7 +107,7 @@ function fromSermon(sermon: Sermon): FormState {
 function toPayload(form: FormState): Partial<Sermon> {
   return {
     slug: form.slug || undefined,
-    date_culte: dayjs(form.date_culte).toISOString(),
+    date_culte: churchDateTimeToISO(form.date_culte),
     type_culte: form.type_culte || undefined,
     predicateur: form.predicateur_id || undefined,
     serie: form.serie_id || null,
@@ -106,6 +116,9 @@ function toPayload(form: FormState): Partial<Sermon> {
     thumbnail_url: form.thumbnail_url,
     audio_url: form.audio_url,
     traductions: [form.fr, form.en].filter((t) => t.titre || t.youtube_url),
+    passages: form.passages.map(({ reference, texte }, ordre) => ({ ordre, reference, texte })),
+    citations_branham: form.citations.map(({ source, texte }, ordre) => ({ ordre, source, texte })),
+    plan: form.plan.map(({ titre, description }, ordre) => ({ ordre, titre, description })),
   } as Partial<Sermon>;
 }
 
@@ -136,28 +149,39 @@ export function SermonEditPage() {
 
   const [form, setForm] = useState<FormState>(blankForm());
   const [hydrated, setHydrated] = useState(isNew);
+  const [timeCustomized, setTimeCustomized] = useState(!isNew);
 
   if (!isNew && sermonQuery.data && !hydrated) {
     setForm(fromSermon(sermonQuery.data));
     setHydrated(true);
   }
 
+  const [editingVersion, setEditingVersion] = useState<number | null>(null);
+  if (sermonQuery.data && editingVersion === null) {
+    setEditingVersion(sermonQuery.data.revision_version ?? sermonQuery.data.revision?.version ?? 0);
+  }
+  const options = revisionOptions({ statut: "", revision_version: editingVersion ?? 0 });
   const access = useWorkflowAccess(sermonQuery.data);
   const draftGuard = useDraftGuard(form, hydrated);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!form.fr.titre.trim()) throw new Error("Renseignez le titre du culte en français.");
-      if (!form.predicateur_id) throw new Error("Choisissez le prédicateur du culte.");
-      if (!personnesQuery.data?.some((p) => p.id === form.predicateur_id && isPreacher(p)))
-        throw new Error("Choisissez une personne active ayant le rôle Pasteur ou Prédicateur.");
+      const fields: Record<string, string> = {};
+      if (!form.fr.titre.trim()) fields.titre = "Renseignez le titre du culte en français.";
+      if (!form.type_culte) fields.type_culte = "Choisissez le type de culte.";
+      if (!form.predicateur_id) fields.predicateur = "Choisissez le prédicateur du culte.";
+      else if (!personnesQuery.data?.some((p) => p.id === form.predicateur_id && isPreacher(p)))
+        fields.predicateur = "Choisissez une personne active ayant le rôle Pasteur ou Prédicateur.";
+      if (!form.date_culte) fields.date_culte = "Choisissez la date et l’heure du culte.";
+      if (Object.keys(fields).length) throw new FormValidationError(fields);
       const payload = toPayload(form);
       if (isNew) {
         return sermonsApi.create(payload);
       }
-      return sermonsApi.update(slug as string, payload);
+      return sermonsApi.update(slug as string, payload, options);
     },
     onSuccess: (saved) => {
+      setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       draftGuard.markSaved();
       // Pré-remplit le cache pour éviter un flash de loading après la redirection.
       queryClient.setQueryData(["sermon", saved.slug], saved);
@@ -169,28 +193,32 @@ export function SermonEditPage() {
   });
 
   const submitMutation = useMutation({
-    mutationFn: async () => sermonsApi.soumettre(slug as string),
-    onSuccess: () => {
+    mutationFn: async () => sermonsApi.soumettre(slug as string, options),
+    onSuccess: (saved) => {
+      if (saved) setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       void queryClient.invalidateQueries({ queryKey: ["sermon", slug] });
     },
   });
 
   const publishMutation = useMutation({
-    mutationFn: async () => sermonsApi.publier(slug as string),
-    onSuccess: () => {
+    mutationFn: async () => sermonsApi.publier(slug as string, options),
+    onSuccess: (saved) => {
+      if (saved) setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       void queryClient.invalidateQueries({ queryKey: ["sermon", slug] });
       void queryClient.invalidateQueries({ queryKey: ["sermons-list"] });
     },
   });
   const rejectMutation = useMutation({
-    mutationFn: async () => sermonsApi.rejeter(slug as string, ""),
-    onSuccess: () => {
+    mutationFn: async () => sermonsApi.rejeter(slug as string, "", options),
+    onSuccess: (saved) => {
+      if (saved) setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       void queryClient.invalidateQueries({ queryKey: ["sermon", slug] });
     },
   });
   const archiveMutation = useMutation({
-    mutationFn: async () => sermonsApi.archiver(slug as string),
-    onSuccess: () => {
+    mutationFn: async () => sermonsApi.archiver(slug as string, options),
+    onSuccess: (saved) => {
+      if (saved) setEditingVersion(saved.revision_version ?? saved.revision?.version ?? 0);
       void queryClient.invalidateQueries({ queryKey: ["sermon", slug] });
       void queryClient.invalidateQueries({ queryKey: ["sermons-list"] });
     },
@@ -215,7 +243,7 @@ export function SermonEditPage() {
     publishMutation.error ||
     rejectMutation.error ||
     archiveMutation.error;
-  const locked = sermon?.statut === "publie";
+  const live = hasLivePublication(sermon);
   const busy = wfPending || saveMutation.isPending;
   if (!isNew && !sermonQuery.data)
     return (
@@ -246,14 +274,12 @@ export function SermonEditPage() {
         actions={
           <div className={common.actions}>
             {sermon ? <StatusBadge statut={sermon.statut as StatutWorkflow} /> : null}
-            <Button
-              variant="primary"
-              onClick={() => saveMutation.mutate()}
-              disabled={busy || locked}
-            >
+            <Button variant="primary" onClick={() => saveMutation.mutate()} disabled={busy}>
               {saveMutation.isPending ? "Enregistrement…" : "Enregistrer"}
             </Button>
-            {!isNew && sermon?.statut === "brouillon" ? (
+            {!isNew &&
+            ["brouillon", "rejete"].includes(sermon?.statut ?? "") &&
+            !access.validator ? (
               <Button
                 variant="primary"
                 onClick={() => submitMutation.mutate()}
@@ -262,7 +288,9 @@ export function SermonEditPage() {
                 Soumettre à validation
               </Button>
             ) : null}
-            {!isNew && sermon?.statut === "en_revue" ? (
+            {!isNew &&
+            ["brouillon", "en_revue", "rejete"].includes(sermon?.statut ?? "") &&
+            access.validator ? (
               <Button
                 variant="success"
                 onClick={() => {
@@ -271,7 +299,11 @@ export function SermonEditPage() {
                 }}
                 disabled={busy || draftGuard.dirty || !access.canValidate}
               >
-                {publishMutation.isPending ? "Publication…" : "Publier"}
+                {publishMutation.isPending
+                  ? "Publication…"
+                  : live
+                    ? "Publier la correction"
+                    : "Publier"}
               </Button>
             ) : null}
             {!isNew && sermon?.statut === "en_revue" ? (
@@ -283,7 +315,7 @@ export function SermonEditPage() {
                 Rejeter
               </Button>
             ) : null}
-            {!isNew && sermon?.statut === "publie" ? (
+            {!isNew && live ? (
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -302,14 +334,15 @@ export function SermonEditPage() {
       <PageBody>
         <div className={common.editor}>
           <ActionError error={operationError} />
+          <DiscardRevision
+            item={sermon}
+            endpoint={`/sermons/admin/${slug}/`}
+            listPath="/sermons"
+            busy={busy}
+            version={editingVersion ?? 0}
+          />
           <p className={common.notice} role="status">
-            {locked
-              ? "Contenu publié : la fiche est en lecture seule. Un validateur peut l’archiver pour permettre sa modification."
-              : draftGuard.dirty
-                ? "Modifications non enregistrées. Enregistrez avant de soumettre ou valider le contenu."
-                : saveMutation.isSuccess
-                  ? "Modifications enregistrées."
-                  : "Préparez le contenu et enregistrez-le avant de le soumettre à la validation."}
+            {publicationNotice(sermon, draftGuard.dirty, saveMutation.isSuccess)}
           </p>
           {!isNew &&
             (!access.validator ? (
@@ -325,20 +358,40 @@ export function SermonEditPage() {
                 {!access.recent && <IdentityCheck />}
               </div>
             ))}
-          <fieldset disabled={locked || busy} className={common.editor}>
+          <fieldset disabled={busy} className={common.editor}>
             <section className={common.section}>
               <span className={common.sectionTitle}>Informations générales</span>
               <div className={common.formGrid}>
-                <Input
-                  label="Date du culte"
-                  type="datetime-local"
-                  value={form.date_culte}
-                  onChange={(event) => updateField("date_culte", event.target.value)}
-                />
+                <div className={common.full}>
+                  <DateTimeField
+                    label="Date du culte"
+                    value={form.date_culte}
+                    required
+                    shortcuts
+                    onChange={(value) => {
+                      if (value.split("T")[1] !== form.date_culte.split("T")[1])
+                        setTimeCustomized(true);
+                      updateField("date_culte", value);
+                    }}
+                  />
+                </div>
                 <Select
                   label="Type de culte"
                   value={form.type_culte}
-                  onChange={(event) => updateField("type_culte", event.target.value)}
+                  required
+                  onChange={(event) => {
+                    const id = event.target.value;
+                    const code = typesCulteQuery.data?.find((type) => type.id === id)?.code ?? "";
+                    const time = serviceDefaultTime(code);
+                    setForm((prev) => ({
+                      ...prev,
+                      type_culte: id,
+                      date_culte:
+                        isNew && !timeCustomized && time
+                          ? `${prev.date_culte.split("T")[0] || churchNow().format("YYYY-MM-DD")}T${time}`
+                          : prev.date_culte,
+                    }));
+                  }}
                   help={
                     typesCulteQuery.isLoading
                       ? "Chargement…"
@@ -386,13 +439,14 @@ export function SermonEditPage() {
                   onChange={(event) => updateField("duree_minutes", event.target.value)}
                 />
                 <Input
-                  label="Slug"
+                  label="Lien de la publication"
+                  readOnly={!isNew}
                   value={form.slug}
                   onChange={(event) => updateField("slug", event.target.value)}
                   help={
                     isNew
                       ? "Calculé automatiquement à partir du titre FR si vide."
-                      : "Modifier avec précaution — les liens publics actuels peuvent casser."
+                      : "Ce lien reste stable, même si vous corrigez le titre."
                   }
                 />
                 <Input
@@ -415,7 +469,7 @@ export function SermonEditPage() {
             <section className={common.section}>
               <span className={common.sectionTitle}>Contenu rédactionnel</span>
               <Tabs
-                readOnly={locked}
+                readOnly={false}
                 items={[
                   {
                     value: "fr",
@@ -614,6 +668,19 @@ export function SermonEditPage() {
                       }))
                     }
                   />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    leftIcon={<Trash2 size={14} />}
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        citations: prev.citations.filter((_, i) => i !== idx),
+                      }))
+                    }
+                  >
+                    Supprimer la citation
+                  </Button>
                 </div>
               ))}
               <Button
@@ -667,6 +734,19 @@ export function SermonEditPage() {
                       }))
                     }
                   />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    leftIcon={<Trash2 size={14} />}
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        plan: prev.plan.filter((_, i) => i !== idx),
+                      }))
+                    }
+                  >
+                    Supprimer l’étape
+                  </Button>
                 </div>
               ))}
               <Button
@@ -705,7 +785,7 @@ export function SermonEditPage() {
               </section>
             ) : null}
           </fieldset>
-          <SaveFooter onSave={() => saveMutation.mutate()} pending={busy} disabled={locked} />
+          <SaveFooter onSave={() => saveMutation.mutate()} pending={busy} disabled={false} />
         </div>
       </PageBody>
     </>

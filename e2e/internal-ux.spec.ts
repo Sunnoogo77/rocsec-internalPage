@@ -42,12 +42,17 @@ const user = {
   is_superuser: false,
   role: "validateur",
   has_2fa: true,
+  mfa_required: false,
+  mfa_setup_required: false,
   must_change_password: false,
 };
 const testimony = (slug = "esperance", statut = "recu") => ({
   id: slug,
   slug,
   statut,
+  statut_public: statut === "publie" ? "publie" : null,
+  revision_version: 0,
+  revision: null as { id: string; version: number; statut: string } | null,
   type: "recit",
   source: "soumission_publique",
   date_recue: "2026-09-07T12:00:00Z",
@@ -146,11 +151,22 @@ async function setup(
     if (request.method() !== "GET") {
       const body = request.postData() ? request.postDataJSON() : {};
       writes.push({ path, body });
-      if (path === "/temoignages/admin/esperance/")
-        item = { ...item, ...body, statut: "recu", modifie_par: user.id };
+      if (path === "/temoignages/admin/esperance/") {
+        const version = item.revision_version + 1;
+        item = {
+          ...item,
+          ...body,
+          statut: "recu",
+          modifie_par: user.id,
+          revision_version: version,
+          revision:
+            item.statut_public === "publie" ? { id: "correction", version, statut: "recu" } : null,
+        };
+      }
       if (path.endsWith("/marquer_en_revue/"))
         item = { ...item, statut: "en_revue", modifie_par: user.id };
-      if (path.endsWith("/approuver/")) item = { ...item, statut: "publie" };
+      if (path.endsWith("/approuver/"))
+        item = { ...item, statut: "publie", statut_public: "publie", revision: null };
       if (path.startsWith("/temoignages/")) return route.fulfill({ json: item });
       return route.fulfill({ json: body });
     }
@@ -351,12 +367,10 @@ test("témoignages : message reçu, états et confirmation de publication", asyn
   await expect(page.getByRole("dialog", { name: "Publier ce témoignage ?" })).toBeVisible();
   expect(writes).toHaveLength(0);
   await page.getByRole("button", { name: "Confirmer la publication" }).click();
-  await expect(
-    page.getByText("Ce témoignage est publié. La fiche est en lecture seule."),
-  ).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Vous pouvez corriger cette publication");
   expect(writes.filter((w) => w.path.endsWith("/approuver/"))).toHaveLength(1);
-  await expect(page.getByRole("button", { name: "Enregistrer", exact: true })).toBeDisabled();
-  await expect(page.getByLabel("Nom affiché", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Enregistrer", exact: true })).toBeEnabled();
+  await expect(page.getByRole("textbox", { name: "Nom affiché", exact: true })).toBeEditable();
 });
 
 test("les changements restent locaux avant enregistrement et bloquent la décision", async ({
@@ -371,38 +385,52 @@ test("les changements restent locaux avant enregistrement et bloquent la décisi
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await expect(page.getByText("Modifications enregistrées.", { exact: true })).toBeVisible();
   expect(writes[0].body.image_publique).toBe(false);
-  await expect(page.getByText("Un autre validateur doit relire", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approuver et publier" })).toBeEnabled();
+  await expect(page.getByText("Un autre validateur doit relire", { exact: false })).toHaveCount(0);
 });
 
 for (const config of [
   { editor: true },
-  { own: true },
   { recent: false },
   { superadmin: true, own: true, recent: false },
 ]) {
   test(`la publication respecte les accès ${JSON.stringify(config)}`, async ({ page }) => {
     await setup(page, config);
     await page.goto("/temoignages/esperance");
-    await expect(page.getByRole("button", { name: "Approuver et publier" })).toBeDisabled();
+    if ("editor" in config)
+      await expect(page.getByRole("button", { name: "Approuver et publier" })).toHaveCount(0);
+    else await expect(page.getByRole("button", { name: "Approuver et publier" })).toBeDisabled();
     if ("recent" in config)
-      await expect(page.getByRole("button", { name: "Vérifier mon identité" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Vérifier ma connexion" })).toBeVisible();
   });
 }
 
-test("le superadministrateur peut publier son propre témoignage après vérification", async ({
-  page,
-}) => {
-  const writes = await setup(page, { superadmin: true, own: true, editor: true });
+for (const options of [{ own: true }, { superadmin: true, own: true, editor: true }]) {
+  test(`le validateur peut publier son propre témoignage ${JSON.stringify(options)}`, async ({
+    page,
+  }) => {
+    const writes = await setup(page, options);
+    await page.goto("/temoignages/esperance");
+    const publish = page.getByRole("button", { name: "Approuver et publier" });
+    await expect(publish).toBeEnabled();
+    await expect(page.getByText("Un autre validateur doit relire", { exact: false })).toHaveCount(
+      0,
+    );
+    await publish.click();
+    await page.getByRole("button", { name: "Confirmer la publication" }).click();
+    await expect(page.getByRole("status")).toContainText("Vous pouvez corriger cette publication");
+    expect(writes.filter((write) => write.path.endsWith("/approuver/"))).toHaveLength(1);
+  });
+}
+
+test("un éditeur transmet un témoignage reçu à la validation", async ({ page }) => {
+  const writes = await setup(page, { editor: true });
   await page.goto("/temoignages/esperance");
-  const publish = page.getByRole("button", { name: "Approuver et publier" });
-  await expect(publish).toBeEnabled();
-  await expect(page.getByText("Un autre validateur doit relire", { exact: false })).toHaveCount(0);
-  await publish.click();
-  await page.getByRole("button", { name: "Confirmer la publication" }).click();
-  await expect(
-    page.getByText("Ce témoignage est publié. La fiche est en lecture seule."),
-  ).toBeVisible();
-  expect(writes.filter((write) => write.path.endsWith("/approuver/"))).toHaveLength(1);
+  await page.getByRole("button", { name: "Soumettre à validation" }).click();
+  await expect
+    .poll(() => writes.filter((write) => write.path.endsWith("/marquer_en_revue/")).length)
+    .toBe(1);
+  await expect(page.getByRole("button", { name: "Approuver et publier" })).toHaveCount(0);
 });
 
 test("la navigation entre fiches recharge le bon formulaire", async ({ page }) => {

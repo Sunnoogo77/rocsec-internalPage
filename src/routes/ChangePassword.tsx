@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { api, HttpError } from "@/api/client";
+import { HttpError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { Button, Input } from "@/components/ui";
 import styles from "./ChangePassword.module.css";
@@ -14,17 +13,8 @@ export function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
-  const [otpToken, setOtpToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const assurance = useQuery({
-    queryKey: ["mfa-assurance"],
-    enabled: Boolean(user?.has_2fa),
-    queryFn: () => api.get<{ is_recent: boolean }>("/auth/2fa/step-up/"),
-    refetchInterval: 30_000,
-  });
-  const needsOtp = user?.has_2fa && !assurance.data?.is_recent;
-
   if (!user?.must_change_password) return <Navigate to="/" replace />;
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -40,11 +30,6 @@ export function ChangePasswordPage() {
     }
     setSubmitting(true);
     try {
-      if (needsOtp) {
-        await api.post("/auth/2fa/step-up/", { token: otpToken });
-        setOtpToken("");
-        await assurance.refetch();
-      }
       await changePassword(currentPassword, newPassword);
       setCurrentPassword("");
       setNewPassword("");
@@ -52,8 +37,6 @@ export function ChangePasswordPage() {
       navigate("/login", { replace: true, state: { passwordChanged: true, from } });
     } catch (err) {
       setError(err instanceof HttpError ? err.message : "Le changement a échoué. Réessayez.");
-      // A verification can expire while the form is open. Refresh before the next attempt.
-      if (user.has_2fa) void assurance.refetch();
     } finally {
       setSubmitting(false);
     }
@@ -107,25 +90,7 @@ export function ChangePasswordPage() {
             maxLength={256}
             required
           />
-          {needsOtp && (
-            <Input
-              label="Code de vérification"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              value={otpToken}
-              onChange={(event) => setOtpToken(event.target.value)}
-              required
-              help="Saisissez le prochain code de votre application d’authentification, différent de celui utilisé pour vous connecter."
-            />
-          )}
-          <Button
-            type="submit"
-            size="lg"
-            variant="primary"
-            disabled={submitting || (user.has_2fa && assurance.isLoading)}
-          >
+          <Button type="submit" size="lg" variant="primary" disabled={submitting}>
             {submitting ? "Enregistrement…" : "Enregistrer et me reconnecter"}
           </Button>
         </form>

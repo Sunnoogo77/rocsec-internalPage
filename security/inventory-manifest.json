@@ -28,8 +28,8 @@
   "src/components/forms/RichTextEditor.tsx:65:ref.current.innerHTML = DOMPurify.sanitize(value);",
   "src/components/layout/Header.tsx:33:target=\"_blank\"",
   "src/routes/MotDuPasteur.tsx:150:dangerouslySetInnerHTML={{",
-  "src/routes/Reglages.tsx:179:target=\"_blank\"",
-  "src/routes/temoignages/TemoignageEdit.tsx:242:onClick={() => window.open(temoignagesApi.printUrl(t.slug), \"_blank\", \"noopener\")}",
-  "src/routes/temoignages/TemoignageEdit.tsx:250:window.open(temoignagesApi.bundleUrl(t.slug), \"_blank\", \"noopener\")",
-  "src/routes/temoignages/TemoignageEdit.tsx:346:<a key={p.id} href={p.image_url} target=\"_blank\" rel=\"noopener noreferrer\">"
+  "src/routes/Reglages.tsx:192:target=\"_blank\"",
+  "src/routes/temoignages/TemoignageEdit.tsx:260:onClick={() => window.open(temoignagesApi.printUrl(t.slug), \"_blank\", \"noopener\")}",
+  "src/routes/temoignages/TemoignageEdit.tsx:268:window.open(temoignagesApi.bundleUrl(t.slug), \"_blank\", \"noopener\")",
+  "src/routes/temoignages/TemoignageEdit.tsx:361:<a key={p.id} href={p.image_url} target=\"_blank\" rel=\"noopener noreferrer\">"
 ]

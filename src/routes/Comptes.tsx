@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Eye, EyeOff } from "lucide-react";
 import { api, HttpError } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { IdentityCheck, useWorkflowAccess } from "@/components/forms/WorkflowAccess";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { PageBody, PageHead } from "@/components/layout/MainLayout";
-import { Button, Card, Input, Modal, Select } from "@/components/ui";
+import { Button, Card, Input, Modal, Select, Toggle } from "@/components/ui";
 import { ActionError } from "@/components/ui/ActionError";
 import styles from "./Comptes.module.css";
+import { AccountEditor } from "./AccountEditor";
 
-interface ManagedAccount {
+export interface ManagedAccount {
   id: string;
   username: string;
   first_name: string;
@@ -18,11 +19,86 @@ interface ManagedAccount {
   role: "editeur" | "validateur";
   is_active: boolean;
   must_change_password: boolean;
+  is_superuser: boolean;
+  mfa_required: boolean;
+  mfa_setup_required: boolean;
+  has_2fa: boolean;
+  last_login: string | null;
+  last_activity_at: string | null;
+  last_activity_action: string | null;
+  last_activity_target: string | null;
 }
 
 interface AccountReceipt {
   username: string;
   password: string;
+  reset?: boolean;
+}
+
+function formatDate(value?: string | null, empty = "—") {
+  if (!value) return empty;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? empty
+    : new Intl.DateTimeFormat("fr-FR", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Europe/Paris",
+      }).format(date);
+}
+
+function activityLabel(action: string | null) {
+  const names: Record<string, string> = {
+    account_created: "Création d’un compte",
+    account_updated: "Modification d’un compte",
+    password_changed: "Changement de mot de passe",
+    bootstrap_admin: "Initialisation du compte administrateur",
+    mfa_enabled: "Activation de la double authentification",
+    mfa_disabled: "Désactivation de la double authentification",
+  };
+  if (!action) return "Action enregistrée";
+  if (names[action]) return names[action];
+  const [rawResource, operation] = action.split(".");
+  const resource = rawResource.replace(/-admin$/, "");
+  const subjects: Record<string, string> = {
+    user: "d’un compte",
+    users: "d’un compte",
+    "managed-user": "d’un compte",
+    "groupe-personnes": "d’un groupe",
+    serie: "d’une série",
+    session: "d’un service de chant",
+    genese: "d’une page Genèse",
+    vlog: "d’une vidéo de la semaine",
+    personne: "d’une personne",
+    personnes: "d’une personne",
+    sermon: "d’un culte",
+    sermons: "d’un culte",
+    cantique: "d’un cantique",
+    cantiques: "d’un cantique",
+    annonce: "d’une annonce",
+    annonces: "d’une annonce",
+    temoignage: "d’un témoignage",
+    temoignages: "d’un témoignage",
+    media: "d’un média",
+    medias: "d’un média",
+  };
+  const operations: Record<string, string> = {
+    create: "Création",
+    update: "Modification",
+    partial_update: "Modification",
+    destroy: "Suppression",
+    soumettre: "Soumission à validation",
+    approuver: "Publication",
+    publier: "Publication",
+    desarchiver: "Remise en ligne",
+    annuler_revision: "Abandon de la correction",
+    archiver: "Archivage",
+    rejeter: "Refus",
+    marquer_en_revue: "Mise en revue",
+  };
+  return operations[operation]
+    ? `${operations[operation]} ${subjects[resource] ?? "d’un contenu"}`
+    : "Action enregistrée";
 }
 
 function AccountReceiptDialog({
@@ -61,12 +137,13 @@ function AccountReceiptDialog({
     <Modal
       open
       onClose={onClose}
-      title="Compte créé"
+      title={receipt.reset ? "Mot de passe provisoire renouvelé" : "Compte créé"}
       footer={<Button onClick={onClose}>Terminer</Button>}
     >
       <div className={styles.receipt}>
         <p role="status">
-          Le compte est créé. Vous pouvez transmettre ces identifiants à la personne.
+          {receipt.reset ? "Le mot de passe a été renouvelé." : "Le compte est créé."} Vous pouvez
+          transmettre ces identifiants à la personne.
         </p>
         <p>Elle devra choisir son propre mot de passe à sa première connexion.</p>
         <div className={styles.receiptField}>
@@ -150,6 +227,9 @@ export function ComptesPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"editeur" | "validateur">("editeur");
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [editing, setEditing] = useState<ManagedAccount | null>(null);
+  const [successMessage, setSuccessMessage] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<unknown>(null);
   const [receipt, setReceipt] = useState<AccountReceipt | null>(null);
@@ -198,7 +278,7 @@ export function ComptesPage() {
     try {
       const created = await api.post<ManagedAccount>(
         "/auth/users/",
-        { username, password: submittedPassword, role },
+        { username, password: submittedPassword, role, mfa_required: mfaRequired },
         { signal: controller.signal },
       );
       if (controller.signal.aborted) return;
@@ -221,13 +301,6 @@ export function ComptesPage() {
     }
   };
 
-  const update = useMutation({
-    mutationFn: (account: ManagedAccount) =>
-      api.patch(`/auth/users/${account.id}/`, { is_active: !account.is_active }),
-    onSuccess: () => {
-      void cache.invalidateQueries({ queryKey: ["accounts"] });
-    },
-  });
   const creationUncertain =
     createError && (!(createError instanceof HttpError) || createError.status >= 500);
   if (!user?.is_superuser)
@@ -246,10 +319,26 @@ export function ComptesPage() {
       />
       <PageBody>
         {!access.recent && <IdentityCheck />}
-        <div className="settingsGrid">
+        {successMessage && (
+          <p role="status" className="securityNotice">
+            {successMessage}
+          </p>
+        )}
+        <div className={styles.levels}>
+          <p>
+            <strong>Éditeur</strong> — crée et modifie les contenus, puis les soumet à validation.
+          </p>
+          <p>
+            <strong>Validateur</strong> — crée, modifie et publie les contenus.
+          </p>
+          <p>
+            <strong>Superadministrateur</strong> — dispose de tous les accès et gère les comptes. Sa
+            double authentification est obligatoire.
+          </p>
+        </div>
+        <div className={styles.workspace}>
           <Card title="Comptes de l’équipe">
             <ActionError error={accounts.error} title="Impossible de charger les comptes" />
-            <ActionError error={update.error} title="Le compte n’a pas été modifié" />
             {accounts.isLoading ? (
               <p>Chargement des comptes…</p>
             ) : accounts.isSuccess && !accounts.data.results.length ? (
@@ -261,22 +350,52 @@ export function ComptesPage() {
                     <div>
                       <strong>{account.username}</strong>
                       <p>
-                        {account.role === "validateur" ? "Validateur" : "Éditeur"} ·{" "}
-                        {account.is_active ? "Actif" : "Désactivé"}
+                        {account.is_superuser
+                          ? "Superadministrateur"
+                          : account.role === "validateur"
+                            ? "Validateur"
+                            : "Éditeur"}{" "}
+                        · {account.is_active ? "Actif" : "Désactivé"}
                         {account.must_change_password ? " · Mot de passe à renouveler" : ""}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      disabled={account.id === user.id || update.isPending}
-                      onClick={() => update.mutate(account)}
-                    >
-                      {update.isPending && update.variables?.id === account.id
-                        ? "Enregistrement…"
-                        : account.is_active
-                          ? "Désactiver"
-                          : "Réactiver"}
-                    </Button>
+                    <div className={styles.accountDetails}>
+                      <p>
+                        Double authentification :{" "}
+                        {account.mfa_required ? "obligatoire" : "facultative"} ·{" "}
+                        {account.has_2fa ? "configurée" : "non configurée"}
+                      </p>
+                      <p>
+                        Dernière connexion : {formatDate(account.last_login, "Aucune connexion")}
+                      </p>
+                      <p>
+                        Dernière action :{" "}
+                        {account.last_activity_at
+                          ? `${activityLabel(account.last_activity_action)} · ${formatDate(account.last_activity_at)}`
+                          : "Aucune action enregistrée"}
+                      </p>
+                      {account.last_activity_target && (
+                        <details>
+                          <summary>Détail de la dernière action</summary>
+                          <p>Référence : {account.last_activity_target}</p>
+                        </details>
+                      )}
+                      {account.id === user.id ? (
+                        <p>Votre compte</p>
+                      ) : account.is_superuser ? (
+                        <p>Compte superadministrateur</p>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setSuccessMessage("");
+                            setEditing(account);
+                          }}
+                        >
+                          Modifier les accès
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -309,9 +428,19 @@ export function ComptesPage() {
                 onChange={(e) => setRole(e.target.value as "editeur" | "validateur")}
                 disabled={creating}
               >
-                <option value="editeur">Éditeur — préparer les contenus</option>
-                <option value="validateur">Validateur — relire et publier</option>
+                <option value="editeur">Éditeur — créer et modifier les contenus</option>
+                <option value="validateur">Validateur — créer, modifier et publier</option>
               </Select>
+              <Toggle
+                label="Exiger la double authentification"
+                checked={mfaRequired}
+                onChange={setMfaRequired}
+                disabled={creating}
+              />
+              <p>
+                Facultative pour ce compte, sauf si vous activez cette option. Un seul code est
+                demandé à chaque connexion.
+              </p>
               <Input
                 label="Mot de passe initial"
                 type="password"
@@ -340,6 +469,22 @@ export function ComptesPage() {
           </Card>
         </div>
       </PageBody>
+      {editing && (
+        <AccountEditor
+          account={editing}
+          onClose={() => setEditing(null)}
+          onUncertain={() => {
+            void cache.invalidateQueries({ queryKey: ["accounts"] });
+          }}
+          onSaved={(updated, temporaryPassword) => {
+            setEditing(null);
+            setSuccessMessage(`Les accès de ${updated.username} ont été enregistrés.`);
+            void cache.invalidateQueries({ queryKey: ["accounts"] });
+            if (temporaryPassword)
+              setReceipt({ username: updated.username, password: temporaryPassword, reset: true });
+          }}
+        />
+      )}
       {receipt && <AccountReceiptDialog receipt={receipt} onClose={() => setReceipt(null)} />}
     </>
   );

@@ -193,6 +193,7 @@ test("un administrateur crée un compte avec un nom d’utilisateur sans email",
         username: "soeur.marie",
         password: "Synthetic-only-test.7392!",
         role: "editeur",
+        mfa_required: false,
       });
       expect(route.request().headers()["x-csrftoken"]).toBe("synthetic-csrf");
       created = true;
@@ -310,39 +311,32 @@ test("la première connexion impose un mot de passe personnel puis une nouvelle 
   await expect(page.getByRole("heading", { name: "Mon compte", exact: true })).toBeVisible();
 });
 
-test("un compte avec MFA vérifie un nouveau code avant de remplacer son mot de passe temporaire", async ({
+test("la vérification de connexion suffit pour remplacer un mot de passe temporaire", async ({
   page,
 }) => {
-  let recent = false;
   const writes: string[] = [];
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/csrf/")) return route.fulfill({ json: { csrf: "synthetic-csrf" } });
     if (path.endsWith("/me/"))
-      return route.fulfill({ json: { ...user, must_change_password: true } });
-    if (path.endsWith("/step-up/")) {
-      if (route.request().method() === "POST") {
-        expect(route.request().postDataJSON()).toEqual({ token: "654321" });
-        expect(route.request().headers()["x-csrftoken"]).toBe("synthetic-csrf");
-        recent = true;
-        writes.push("step-up");
-      }
-      return route.fulfill({ json: { is_recent: recent } });
-    }
-    if (path.endsWith("/password/")) {
-      expect(recent).toBe(true);
-      writes.push("password");
-      return route.fulfill({ status: 204 });
-    }
-    return route.fulfill({ status: 403, json: {} });
+      return route.fulfill({
+        json: {
+          ...user,
+          must_change_password: true,
+          mfa_required: true,
+          mfa_setup_required: false,
+        },
+      });
+    if (route.request().method() === "POST") writes.push(path);
+    if (path.endsWith("/password/")) return route.fulfill({ status: 204 });
+    return route.fulfill({ json: { is_recent: true } });
   });
   await page.goto("/changer-mot-de-passe");
   await page.getByLabel("Mot de passe temporaire").fill("Temporary-test.7363!");
   await page.getByLabel(/^Nouveau mot de passe/).fill("Personal-test.6281!");
   await page.getByLabel("Confirmer le nouveau mot de passe").fill("Personal-test.6281!");
-  await expect(page.getByText(/prochain code de votre application/)).toBeVisible();
-  await page.getByLabel("Code de vérification").fill("654321");
+  await expect(page.getByLabel("Code de vérification")).toHaveCount(0);
   await page.getByRole("button", { name: "Enregistrer et me reconnecter" }).click();
   await expect(page).toHaveURL(/\/login$/);
-  expect(writes).toEqual(["step-up", "password"]);
+  expect(writes).toEqual(["/api/v1/auth/password/"]);
 });

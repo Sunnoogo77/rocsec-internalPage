@@ -10,9 +10,10 @@ import { accountsApi } from "@/api";
 import { api } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import styles from "./Reglages.module.css";
+import { IdentityCheck } from "@/components/forms/WorkflowAccess";
 
 export function ReglagesPage() {
-  const { user, invalidateSession, changePassword } = useAuth();
+  const { user, refresh, invalidateSession, changePassword } = useAuth();
   const cache = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export function ReglagesPage() {
   const enrolmentGeneration = useRef(0);
   const mounted = useRef(true);
   const [token, setToken] = useState("");
-  const [stepToken, setStepToken] = useState("");
+  const [enrolmentStatus, setEnrolmentStatus] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -37,13 +38,10 @@ export function ReglagesPage() {
     queryKey: ["mfa-assurance"],
     queryFn: () => api.get<{ is_recent: boolean; seconds_remaining: number }>("/auth/2fa/step-up/"),
     enabled: Boolean(user?.has_2fa),
-    refetchInterval: 15000,
-    staleTime: 0,
+    staleTime: Infinity,
   });
-  const recent =
-    assurance.isSuccess &&
-    assurance.data.is_recent &&
-    Date.now() < assurance.dataUpdatedAt + assurance.data.seconds_remaining * 1000;
+  const required = Boolean(user?.is_superuser || user?.mfa_required);
+  const recent = assurance.isSuccess && assurance.data.is_recent;
   useEffect(() => {
     if (location.hash === "#securite") {
       document.getElementById("securite")?.focus();
@@ -99,10 +97,18 @@ export function ReglagesPage() {
   };
   const verify = useMutation({
     mutationFn: () => accountsApi.verify2fa(token),
-    onSuccess: () =>
-      reconnect(
-        "La double authentification est activée. Reconnectez-vous avec votre mot de passe, puis le nouveau code de votre application.",
-      ),
+    onSuccess: async () => {
+      enrolmentGeneration.current += 1;
+      enable.reset();
+      setEnrolment(null);
+      setToken("");
+      setCopyStatus("");
+      await refresh();
+      await cache.invalidateQueries({ queryKey: ["mfa-assurance"] });
+      setEnrolmentStatus(
+        "La double authentification est activée. Votre connexion est vérifiée : vous pouvez commencer à travailler.",
+      );
+    },
   });
   const disable = useMutation({
     mutationFn: accountsApi.disable2fa,
@@ -110,13 +116,6 @@ export function ReglagesPage() {
       reconnect(
         "La double authentification est désactivée. Reconnectez-vous avec votre mot de passe.",
       ),
-  });
-  const stepUp = useMutation({
-    mutationFn: () => api.post("/auth/2fa/step-up/", { token: stepToken }),
-    onSuccess: () => {
-      setStepToken("");
-      void cache.invalidateQueries({ queryKey: ["mfa-assurance"] });
-    },
   });
   const password = useMutation({
     mutationFn: () => changePassword(oldPassword, newPassword),
@@ -157,14 +156,28 @@ export function ReglagesPage() {
                 </p>
               </div>
               <span className={user?.has_2fa ? styles.enabled : styles.pending}>
-                {user?.has_2fa ? "Activée" : "À configurer"}
+                {user?.has_2fa ? "Activée" : required ? "À configurer" : "Facultative"}
               </span>
             </div>
+            {user?.mfa_setup_required && (
+              <p role="status" className="securityNotice">
+                La double authentification est obligatoire pour votre compte. Configurez-la
+                ci-dessous pour accéder à votre espace de travail.
+              </p>
+            )}
+            {enrolmentStatus && (
+              <p role="status" className={styles.success}>
+                {enrolmentStatus}
+              </p>
+            )}
             {!user?.has_2fa ? (
               <div className="settingsForm">
                 <p>
-                  Cette protection est nécessaire pour gérer les personnes et les comptes, ou
-                  publier du contenu. La configuration ne se fait qu’une fois.
+                  {required
+                    ? "Cette protection est obligatoire pour votre compte."
+                    : "Cette protection est facultative. Vous pouvez l’activer pour sécuriser votre compte."}{" "}
+                  La configuration ne se fait qu’une fois ; ensuite, un code sera demandé uniquement
+                  à chaque connexion.
                 </p>
                 {!enrolment ? (
                   <>
@@ -270,8 +283,8 @@ export function ReglagesPage() {
                       showMfaAction={false}
                     />
                     <p>
-                      Après l’activation, reconnectez-vous avec votre mot de passe et un nouveau
-                      code de l’application.
+                      Ce code confirme la configuration et vérifie votre connexion actuelle. Vous
+                      pourrez ensuite travailler directement.
                     </p>
                     <div className={styles.actions}>
                       <Button
@@ -279,7 +292,7 @@ export function ReglagesPage() {
                         variant="primary"
                         disabled={verify.isPending || token.length !== 6}
                       >
-                        {verify.isPending ? "Activation…" : "Activer et me reconnecter"}
+                        {verify.isPending ? "Activation…" : "Activer et continuer"}
                       </Button>
                       <Button
                         type="button"
@@ -305,75 +318,55 @@ export function ReglagesPage() {
                 {recent ? (
                   <div role="status" className={styles.success}>
                     <strong>Votre identité est vérifiée.</strong>
-                    <p>Vous pouvez reprendre votre action pendant les prochaines minutes.</p>
+                    <p>
+                      Cette vérification reste valable pendant toute votre connexion. Aucun nouveau
+                      code ne sera demandé pour chaque action.
+                    </p>
                     <Link className={styles.returnLink} to={returnTo ?? "/"}>
                       {returnTo ? "Reprendre mon action" : "Retour à l’accueil"}
                     </Link>
                   </div>
                 ) : (
-                  <form
-                    className="settingsForm"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      stepUp.mutate();
-                    }}
-                  >
-                    <h3>Vérifier mon identité</h3>
+                  <div className="settingsForm">
                     <p>
-                      Pour créer un compte, gérer une personne ou publier, ouvrez votre application
-                      d’authentification et recopiez le code « RST Admin ». Cette vérification reste
-                      valable quelques minutes.
+                      Votre connexion doit être vérifiée. Reconnectez-vous une fois avec le code de
+                      votre application pour continuer.
                     </p>
-                    <Input
-                      label="Code de vérification"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      pattern="[0-9]{6}"
-                      maxLength={6}
-                      value={stepToken}
-                      onChange={(event) => setStepToken(event.target.value.replace(/\D/g, ""))}
-                      required
-                      help="Si vous venez d’utiliser un code pour vous connecter, attendez le suivant : le même code ne peut pas être utilisé deux fois."
-                    />
-                    <ActionError
-                      error={stepUp.error}
-                      title="La vérification n’a pas abouti."
-                      showMfaAction={false}
-                    />
-                    <Button
-                      variant="primary"
-                      type="submit"
-                      disabled={stepUp.isPending || stepToken.length !== 6}
-                    >
-                      {stepUp.isPending ? "Vérification…" : "Vérifier mon identité"}
-                    </Button>
-                  </form>
+                    <IdentityCheck />
+                  </div>
                 )}
                 <ActionError
                   error={assurance.error}
                   title="La vérification de votre session est indisponible."
                   showMfaAction={false}
                 />
-                <details className={styles.disable}>
-                  <summary>Désactiver la double authentification</summary>
+                {required ? (
                   <p>
-                    Cette action termine vos sessions et retire les codes de connexion. Il faudra la
-                    reconfigurer pour gérer les comptes et effectuer les actions protégées.
+                    La double authentification est obligatoire pour votre compte et ne peut pas être
+                    désactivée ici.
                   </p>
-                  {!recent && <p>Vérifiez d’abord votre identité avec le formulaire ci-dessus.</p>}
-                  <ActionError
-                    error={disable.error}
-                    title="La désactivation n’a pas abouti."
-                    showMfaAction={false}
-                  />
-                  <Button
-                    variant="dangerOutline"
-                    disabled={!recent || disable.isPending}
-                    onClick={() => disable.mutate()}
-                  >
-                    {disable.isPending ? "Désactivation…" : "Désactiver et terminer mes sessions"}
-                  </Button>
-                </details>
+                ) : (
+                  <details className={styles.disable}>
+                    <summary>Désactiver la double authentification</summary>
+                    <p>
+                      Cette action termine vos sessions et retire les codes de connexion. Vous
+                      pourrez vous reconnecter avec votre mot de passe.
+                    </p>
+                    {!recent && <p>Reconnectez-vous d’abord pour vérifier votre connexion.</p>}
+                    <ActionError
+                      error={disable.error}
+                      title="La désactivation n’a pas abouti."
+                      showMfaAction={false}
+                    />
+                    <Button
+                      variant="dangerOutline"
+                      disabled={!recent || disable.isPending}
+                      onClick={() => disable.mutate()}
+                    >
+                      {disable.isPending ? "Désactivation…" : "Désactiver et terminer mes sessions"}
+                    </Button>
+                  </details>
+                )}
               </div>
             )}
           </section>
@@ -391,7 +384,13 @@ export function ReglagesPage() {
                       : "Éditeur"}
                 </dd>
                 <dt>Double authentification</dt>
-                <dd>{user?.has_2fa ? "Activée" : "À configurer"}</dd>
+                <dd>
+                  {user?.has_2fa
+                    ? "Activée"
+                    : required
+                      ? "Obligatoire, à configurer"
+                      : "Facultative"}
+                </dd>
               </dl>
             </Card>
             <Card title="Changer mon mot de passe">

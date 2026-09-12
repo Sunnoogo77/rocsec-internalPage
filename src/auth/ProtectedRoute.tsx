@@ -17,13 +17,17 @@ export function ProtectedRoute({ children, allowPasswordChange = false }: Protec
 
   if (!user) {
     const from = allowPasswordChange
-      ? (location.state as { from?: string } | null)?.from ?? "/"
+      ? ((location.state as { from?: string } | null)?.from ?? "/")
       : location.pathname;
     return <Navigate to="/login" state={{ from }} replace />;
   }
 
   if (user.must_change_password && !allowPasswordChange) {
     return <Navigate to="/changer-mot-de-passe" state={{ from: location.pathname }} replace />;
+  }
+
+  if (!user.must_change_password && user.mfa_setup_required && location.pathname !== "/reglages") {
+    return <Navigate to="/reglages#securite" state={{ returnTo: location.pathname }} replace />;
   }
 
   return <>{children}</>;

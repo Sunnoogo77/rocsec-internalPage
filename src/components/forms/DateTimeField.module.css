@@ -1,0 +1,86 @@
+.dateTime {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 16px;
+}
+.field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+}
+.field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+.field label span {
+  color: var(--red-600);
+}
+.inputWrap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  color: var(--gray-600);
+  background: var(--surface);
+}
+.inputWrap:focus-within {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 2px;
+}
+.inputWrap svg {
+  flex-shrink: 0;
+}
+.inputWrap input {
+  min-width: 0;
+  width: 100%;
+  padding: 4px 0;
+  border: 0;
+  outline: none;
+  color: var(--gray-900);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+}
+.inputWrap button,
+.shortcuts button {
+  font: inherit;
+  font-size: 12px;
+  color: var(--blue-700);
+  border: 0;
+  background: var(--blue-50);
+  border-radius: 5px;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+.inputWrap button:focus-visible,
+.shortcuts button:focus-visible {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 2px;
+}
+.shortcuts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.help {
+  color: var(--gray-600);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+}

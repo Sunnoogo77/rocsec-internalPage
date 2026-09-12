@@ -1,4 +1,4 @@
-import { api, apiUrl } from "./client";
+import { api, apiUrl, type RequestOptions } from "./client";
 import type {
   Annonce,
   Batisseur,
@@ -37,8 +37,7 @@ export const typesCulteApi = {
   list: () => api.get<TypeCulte[]>("/sermons/types/"),
   /** Admin : tous les types, actifs ou non. */
   listAdmin: () => api.get<TypeCulte[]>("/sermons/types/admin/"),
-  create: (body: Partial<TypeCulte>) =>
-    api.post<TypeCulte>("/sermons/types/admin/", body),
+  create: (body: Partial<TypeCulte>) => api.post<TypeCulte>("/sermons/types/admin/", body),
   update: (code: string, body: Partial<TypeCulte>) =>
     api.patch<TypeCulte>(`/sermons/types/admin/${code}/`, body),
   remove: (code: string) => api.delete(`/sermons/types/admin/${code}/`),
@@ -67,29 +66,35 @@ const adminCrud = <T>(base: string) => ({
     api.get<Paginated<T>>(base, { query: { ...filters, search: filters.q } }),
   get: (slug: string) => api.get<T>(`${base}${slug}/`),
   create: (body: Partial<T>) => api.post<T>(base, body),
-  update: (slug: string, body: Partial<T>) => api.patch<T>(`${base}${slug}/`, body),
+  update: (slug: string, body: Partial<T>, options?: RequestOptions) =>
+    api.patch<T>(`${base}${slug}/`, body, options),
   remove: (slug: string) => api.delete(`${base}${slug}/`),
-  soumettre: (slug: string) => api.post<T>(`${base}${slug}/soumettre/`),
-  publier: (slug: string) => api.post<T>(`${base}${slug}/publier/`),
-  rejeter: (slug: string) => api.post<T>(`${base}${slug}/rejeter/`),
-  archiver: (slug: string) => api.post<T>(`${base}${slug}/archiver/`),
-  desarchiver: (slug: string) => api.post<T>(`${base}${slug}/desarchiver/`),
+  soumettre: (slug: string, options?: RequestOptions) =>
+    api.post<T>(`${base}${slug}/soumettre/`, undefined, options),
+  publier: (slug: string, options?: RequestOptions) =>
+    api.post<T>(`${base}${slug}/publier/`, undefined, options),
+  rejeter: (slug: string, options?: RequestOptions) =>
+    api.post<T>(`${base}${slug}/rejeter/`, undefined, options),
+  archiver: (slug: string, options?: RequestOptions) =>
+    api.post<T>(`${base}${slug}/archiver/`, undefined, options),
+  desarchiver: (slug: string, options?: RequestOptions) =>
+    api.post<T>(`${base}${slug}/desarchiver/`, undefined, options),
 });
 
 export const cantiquesApi = adminCrud<Cantique>("/cantiques/admin/");
 export const annoncesApi = {
   ...adminCrud<Annonce>("/annonces/admin/"),
   /** PATCH multipart pour attacher l'affiche officielle d'une annonce. */
-  uploadAffiche: (slug: string, file: File) => {
+  uploadAffiche: (slug: string, file: File, options?: RequestOptions) => {
     const form = new FormData();
     form.append("affiche", file);
-    return api.patch<Annonce>(`/annonces/admin/${slug}/`, form, { multipart: true });
+    return api.patch<Annonce>(`/annonces/admin/${slug}/`, form, { ...options, multipart: true });
   },
   /** PATCH multipart pour l'image d'illustration générale (hors compte-rendu). */
-  uploadImage: (slug: string, file: File) => {
+  uploadImage: (slug: string, file: File, options?: RequestOptions) => {
     const form = new FormData();
     form.append("image", file);
-    return api.patch<Annonce>(`/annonces/admin/${slug}/`, form, { multipart: true });
+    return api.patch<Annonce>(`/annonces/admin/${slug}/`, form, { ...options, multipart: true });
   },
 };
 
@@ -98,15 +103,9 @@ export const cantiqueOccurrencesApi = {
   list: (cantiqueSlug: string) =>
     api.get<CantiqueOccurrence[]>(`/cantiques/admin/${cantiqueSlug}/occurrences/`),
   create: (cantiqueSlug: string, body: Partial<CantiqueOccurrence>) =>
-    api.post<CantiqueOccurrence>(
-      `/cantiques/admin/${cantiqueSlug}/occurrences/`,
-      body,
-    ),
+    api.post<CantiqueOccurrence>(`/cantiques/admin/${cantiqueSlug}/occurrences/`, body),
   update: (cantiqueSlug: string, id: number, body: Partial<CantiqueOccurrence>) =>
-    api.patch<CantiqueOccurrence>(
-      `/cantiques/admin/${cantiqueSlug}/occurrences/${id}/`,
-      body,
-    ),
+    api.patch<CantiqueOccurrence>(`/cantiques/admin/${cantiqueSlug}/occurrences/${id}/`, body),
   remove: (cantiqueSlug: string, id: number) =>
     api.delete(`/cantiques/admin/${cantiqueSlug}/occurrences/${id}/`),
 };
@@ -115,23 +114,16 @@ export const cantiqueOccurrencesApi = {
 export const sessionsAdorationApi = {
   ...adminCrud<SessionAdoration>("/sessions-adoration/admin/"),
   publicList: () => api.get<Paginated<SessionAdoration>>("/sessions-adoration/"),
-  publicGet: (slug: string) =>
-    api.get<SessionAdoration>(`/sessions-adoration/${slug}/`),
+  publicGet: (slug: string) => api.get<SessionAdoration>(`/sessions-adoration/${slug}/`),
   cantiquesContenus: {
     list: (sessionSlug: string) =>
-      api.get<SessionAdorationCantique[]>(
-        `/sessions-adoration/admin/${sessionSlug}/cantiques/`,
-      ),
+      api.get<SessionAdorationCantique[]>(`/sessions-adoration/admin/${sessionSlug}/cantiques/`),
     create: (sessionSlug: string, body: Partial<SessionAdorationCantique>) =>
       api.post<SessionAdorationCantique>(
         `/sessions-adoration/admin/${sessionSlug}/cantiques/`,
         body,
       ),
-    update: (
-      sessionSlug: string,
-      id: number,
-      body: Partial<SessionAdorationCantique>,
-    ) =>
+    update: (sessionSlug: string, id: number, body: Partial<SessionAdorationCantique>) =>
       api.patch<SessionAdorationCantique>(
         `/sessions-adoration/admin/${sessionSlug}/cantiques/${id}/`,
         body,
@@ -149,24 +141,24 @@ export const temoignagesApi = {
   get: (slug: string) => api.get<Temoignage>(`/temoignages/admin/${slug}/`),
   /** Création d'un témoignage en JSON (sans image principale). L'image éditoriale
    * peut être ajoutée ensuite via `uploadImage(slug, file)`. */
-  create: (body: Partial<Temoignage>) =>
-    api.post<Temoignage>("/temoignages/admin/", body),
-  update: (slug: string, body: Partial<Temoignage>) =>
-    api.patch<Temoignage>(`/temoignages/admin/${slug}/`, body),
+  create: (body: Partial<Temoignage>) => api.post<Temoignage>("/temoignages/admin/", body),
+  update: (slug: string, body: Partial<Temoignage>, options?: RequestOptions) =>
+    api.patch<Temoignage>(`/temoignages/admin/${slug}/`, body, options),
   /** PATCH multipart pour attacher l'image principale (éditoriale). */
-  uploadImage: (slug: string, file: File) => {
+  uploadImage: (slug: string, file: File, options?: RequestOptions) => {
     const form = new FormData();
     form.append("image", file);
     return api.patch<Temoignage>(`/temoignages/admin/${slug}/`, form, {
+      ...options,
       multipart: true,
     });
   },
-  approuver: (slug: string) =>
-    api.post<Temoignage>(`/temoignages/admin/${slug}/approuver/`),
-  rejeter: (slug: string, motif: string) =>
-    api.post<Temoignage>(`/temoignages/admin/${slug}/rejeter/`, { motif }),
-  marquerEnRevue: (slug: string) =>
-    api.post<Temoignage>(`/temoignages/admin/${slug}/marquer_en_revue/`),
+  approuver: (slug: string, options?: RequestOptions) =>
+    api.post<Temoignage>(`/temoignages/admin/${slug}/approuver/`, undefined, options),
+  rejeter: (slug: string, motif: string, options?: RequestOptions) =>
+    api.post<Temoignage>(`/temoignages/admin/${slug}/rejeter/`, { motif }, options),
+  marquerEnRevue: (slug: string, options?: RequestOptions) =>
+    api.post<Temoignage>(`/temoignages/admin/${slug}/marquer_en_revue/`, undefined, options),
   /** URL HTML imprimable (à ouvrir dans un nouvel onglet, déclenche window.print). */
   printUrl: (slug: string) => apiUrl(`/temoignages/admin/${slug}/print/`),
   /** URL ZIP (texte + photos), prêt à partager via WhatsApp. */
@@ -178,8 +170,7 @@ export const personnesApi = {
     api.get<Paginated<Personne>>("/personnes/", { query: { ...filters, search: filters.q } }),
   get: (id: string) => api.get<Personne>(`/personnes/${id}/`),
   create: (body: Partial<Personne>) => api.post<Personne>("/personnes/", body),
-  update: (id: string, body: Partial<Personne>) =>
-    api.patch<Personne>(`/personnes/${id}/`, body),
+  update: (id: string, body: Partial<Personne>) => api.patch<Personne>(`/personnes/${id}/`, body),
   remove: (id: string) => api.delete(`/personnes/${id}/`),
 };
 
@@ -187,8 +178,7 @@ export const personnesApi = {
 export const rolesPersonneApi = {
   list: () => api.get<RolePersonne[]>("/personnes/roles/"),
   listAdmin: () => api.get<RolePersonne[]>("/personnes/roles/admin/"),
-  create: (body: Partial<RolePersonne>) =>
-    api.post<RolePersonne>("/personnes/roles/admin/", body),
+  create: (body: Partial<RolePersonne>) => api.post<RolePersonne>("/personnes/roles/admin/", body),
   update: (code: string, body: Partial<RolePersonne>) =>
     api.patch<RolePersonne>(`/personnes/roles/admin/${code}/`, body),
   remove: (code: string) => api.delete(`/personnes/roles/admin/${code}/`),
@@ -198,8 +188,7 @@ export const seriesApi = {
   list: () => api.get<Paginated<Serie>>("/personnes/series/"),
   get: (id: string) => api.get<Serie>(`/personnes/series/${id}/`),
   create: (body: Partial<Serie>) => api.post<Serie>("/personnes/series/", body),
-  update: (id: string, body: Partial<Serie>) =>
-    api.patch<Serie>(`/personnes/series/${id}/`, body),
+  update: (id: string, body: Partial<Serie>) => api.patch<Serie>(`/personnes/series/${id}/`, body),
   remove: (id: string) => api.delete(`/personnes/series/${id}/`),
 };
 
@@ -226,8 +215,7 @@ export const evenementsCantiqueApi = {
 };
 
 export const mediasApi = {
-  list: (filters: ListFilters = {}) =>
-    api.get<Paginated<Media>>("/medias/", { query: filters }),
+  list: (filters: ListFilters = {}) => api.get<Paginated<Media>>("/medias/", { query: filters }),
   upload: (file: File, alt?: string) => {
     const fd = new FormData();
     fd.append("fichier", file);
@@ -245,19 +233,20 @@ export const nehemieApi = {
   get: () => api.get<ProjetNehemie>("/nehemie/"),
   update: (body: Partial<ProjetNehemie>) => api.put<ProjetNehemie>("/nehemie/", body),
   historique: () =>
-    api.get<{
-      history_date: string;
-      objectif: string;
-      collecte: string;
-      mise_a_jour: string;
-      history_user: string | null;
-      history_type: string;
-    }[]>("/nehemie/historique/"),
+    api.get<
+      {
+        history_date: string;
+        objectif: string;
+        collecte: string;
+        mise_a_jour: string;
+        history_user: string | null;
+        history_type: string;
+      }[]
+    >("/nehemie/historique/"),
   batisseurs: {
     list: (params: { actif?: "true" | "false" } = {}) =>
       api.get<Batisseur[]>("/nehemie/batisseurs/", { query: params }),
-    create: (body: Partial<Batisseur>) =>
-      api.post<Batisseur>("/nehemie/batisseurs/", body),
+    create: (body: Partial<Batisseur>) => api.post<Batisseur>("/nehemie/batisseurs/", body),
     update: (id: string, body: Partial<Batisseur>) =>
       api.patch<Batisseur>(`/nehemie/batisseurs/${id}/`, body),
     remove: (id: string) => api.delete(`/nehemie/batisseurs/${id}/`),
@@ -272,8 +261,7 @@ export const nehemieApi = {
   },
   modesDon: {
     list: () => api.get<ModeDon[]>("/nehemie/modes-don/"),
-    create: (body: Partial<ModeDon>) =>
-      api.post<ModeDon>("/nehemie/modes-don/", body),
+    create: (body: Partial<ModeDon>) => api.post<ModeDon>("/nehemie/modes-don/", body),
     update: (code: string, body: Partial<ModeDon>) =>
       api.patch<ModeDon>(`/nehemie/modes-don/${code}/`, body),
     remove: (code: string) => api.delete(`/nehemie/modes-don/${code}/`),
@@ -297,8 +285,7 @@ export const temoignagesStatsApi = {
 /** Mot du pasteur (singleton, HTML riche). */
 export const motDuPasteurApi = {
   get: () => api.get<MotDuPasteur>("/mot-du-pasteur/"),
-  update: (body: Partial<MotDuPasteur>) =>
-    api.put<MotDuPasteur>("/mot-du-pasteur/", body),
+  update: (body: Partial<MotDuPasteur>) => api.put<MotDuPasteur>("/mot-du-pasteur/", body),
 };
 
 export const semaineApi = {
@@ -313,12 +300,7 @@ export const semaineApi = {
   imageDelete: (id: string) => api.delete(`/images-semaine/${id}/`),
   /** Importe des Media existants vers la galerie de la semaine.
    *  Renvoie la liste des ImageSemaine créées (avec leurs URLs). */
-  importFromMedia: (
-    media_ids: string[],
-    semaine_iso: number,
-    annee: number,
-    ordre_base: number,
-  ) =>
+  importFromMedia: (media_ids: string[], semaine_iso: number, annee: number, ordre_base: number) =>
     api.post<ImageSemaine[]>("/images-semaine/import-from-media/", {
       media_ids,
       semaine_iso,
@@ -342,7 +324,6 @@ export const accountsApi = {
     }>("/auth/2fa/enable/"),
   verify2fa: (token: string) =>
     api.post<{ status: string; has_2fa: boolean }>("/auth/2fa/verify/", { token }),
-  disable2fa: () =>
-    api.post<{ status: string; has_2fa: boolean }>("/auth/2fa/disable/"),
+  disable2fa: () => api.post<{ status: string; has_2fa: boolean }>("/auth/2fa/disable/"),
   me: () => api.get<User>("/auth/me/"),
 };
