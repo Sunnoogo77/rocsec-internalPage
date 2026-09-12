@@ -25,18 +25,6 @@
   color: var(--gray-900);
   white-space: nowrap;
 }
-.brandMark {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 36px;
-  border-radius: 5px;
-  background: var(--accent);
-  border-bottom: 4px solid var(--danger);
-  color: white;
-  font-size: 21px;
-  font-family: Georgia, serif;
-}
 .brandTag {
   font-size: 11px;
   font-weight: 500;
@@ -256,9 +244,7 @@
     font-size: 14px;
     gap: 6px;
   }
-  .brandMark {
-    display: none;
-  }
+
   .headerActions {
     gap: 4px;
   }
@@ -292,4 +278,47 @@
   .nav {
     min-height: 44px;
   }
+}
+
+.brandLogo {
+  width: 54px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* Keep the real logo and full name within a narrow phone header. */
+@media (max-width: 760px) {
+  .brand {
+    min-width: 0;
+    flex: 1;
+    white-space: normal;
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  .brandLogo {
+    width: 40px;
+    height: 28px;
+  }
+  .spacer {
+    display: none;
+  }
+  .headerActions,
+  .menuButton {
+    flex-shrink: 0;
+  }
+}
+.main {
+  min-height: 0;
+  scroll-padding-block: 24px 110px;
+}
+.main input,
+.main select,
+.main textarea {
+  scroll-margin-block: 100px;
+}
+
+:global([data-theme="dark"]) .brandLogo {
+  background: #fff;
+  border-radius: 4px;
 }

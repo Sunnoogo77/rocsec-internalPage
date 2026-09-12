@@ -9,7 +9,7 @@ import { Button, Card, Input, Select } from "@/components/ui";
 
 interface ManagedAccount {
   id: string;
-  email: string;
+  username: string;
   first_name: string;
   last_name: string;
   role: "editeur" | "validateur";
@@ -19,7 +19,7 @@ interface ManagedAccount {
 export function ComptesPage() {
   const { user } = useAuth();
   const cache = useQueryClient();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"editeur" | "validateur">("editeur");
   const accounts = useQuery({
@@ -28,9 +28,9 @@ export function ComptesPage() {
     queryFn: () => api.get<{ results: ManagedAccount[] }>("/auth/users/"),
   });
   const create = useMutation({
-    mutationFn: () => api.post("/auth/users/", { email, password, role }),
+    mutationFn: () => api.post("/auth/users/", { username, password, role }),
     onSuccess: () => {
-      setEmail("");
+      setUsername("");
       setPassword("");
       void cache.invalidateQueries({ queryKey: ["accounts"] });
     },
@@ -75,7 +75,7 @@ export function ComptesPage() {
                 {accounts.data?.results.map((account) => (
                   <div key={account.id} className="accountRow">
                     <div>
-                      <strong>{account.email}</strong>
+                      <strong>{account.username}</strong>
                       <p>
                         {account.role === "validateur" ? "Validateur" : "Éditeur"} ·{" "}
                         {account.is_active ? "Actif" : "Désactivé"}
@@ -102,12 +102,16 @@ export function ComptesPage() {
               }}
             >
               <Input
-                label="Adresse email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                label="Nom d’utilisateur"
+                type="text"
                 autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={150}
+                placeholder="frere.jean"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
               />
               <Select
                 label="Rôle"

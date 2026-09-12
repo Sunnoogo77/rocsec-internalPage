@@ -35,7 +35,7 @@ const people = [
 ];
 const user = {
   id: "reviewer",
-  email: "equipe@example.test",
+  username: "equipe.marie",
   first_name: "Marie",
   last_name: "Martin",
   is_staff: true,

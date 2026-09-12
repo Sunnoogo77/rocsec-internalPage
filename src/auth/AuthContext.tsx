@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { api, HttpError } from "@/api/client";
 import type { User } from "@/types";
@@ -13,7 +6,11 @@ import type { User } from "@/types";
 interface AuthState {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string, otpToken?: string) => Promise<{ requiresOtp?: boolean }>;
+  login: (
+    username: string,
+    password: string,
+    otpToken?: string,
+  ) => Promise<{ requiresOtp?: boolean }>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -45,30 +42,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const login: AuthState["login"] = useCallback(
-    async (email, password, otpToken) => {
+  const login: AuthState["login"] = useCallback(async (username, password, otpToken) => {
+    await api.ensureCsrf();
+    try {
+      const me = await api.post<User>("/auth/login/", {
+        username,
+        password,
+        otp_token: otpToken ?? "",
+      });
       await api.ensureCsrf();
-      try {
-        const me = await api.post<User>("/auth/login/", {
-          email,
-          password,
-          otp_token: otpToken ?? "",
-        });
-        await api.ensureCsrf();
-        setUser(me);
-        return {};
-      } catch (err) {
-        if (err instanceof HttpError) {
-          const requiresOtp = (err.details as { requires_otp?: boolean } | undefined)?.requires_otp;
-          if (requiresOtp) {
-            return { requiresOtp: true };
-          }
+      setUser(me);
+      return {};
+    } catch (err) {
+      if (err instanceof HttpError) {
+        const requiresOtp = (err.details as { requires_otp?: boolean } | undefined)?.requires_otp;
+        if (requiresOtp) {
+          return { requiresOtp: true };
         }
-        throw err;
       }
-    },
-    [],
-  );
+      throw err;
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     try {

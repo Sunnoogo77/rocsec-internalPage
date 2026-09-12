@@ -67,8 +67,8 @@ export function ReglagesPage() {
         <div className="settingsGrid">
           <Card title="Votre profil">
             <dl className="profileDetails">
-              <dt>Adresse email</dt>
-              <dd>{user?.email}</dd>
+              <dt>Nom d’utilisateur</dt>
+              <dd>{user?.username}</dd>
               <dt>Accès</dt>
               <dd>
                 {user?.is_superuser

@@ -25,7 +25,7 @@
   "src/App.tsx:93:<Route path=\"*\" element={<Navigate to=\"/\" replace />} />",
   "src/api/client.ts:14:/** URL absolue d'une route API. Utile pour les téléchargements (a[href], window.open). */",
   "src/components/forms/RichTextEditor.tsx:65:ref.current.innerHTML = DOMPurify.sanitize(value);",
-  "src/components/layout/Header.tsx:35:target=\"_blank\"",
+  "src/components/layout/Header.tsx:33:target=\"_blank\"",
   "src/routes/MotDuPasteur.tsx:156:dangerouslySetInnerHTML={{",
   "src/routes/temoignages/TemoignageEdit.tsx:241:onClick={() => window.open(temoignagesApi.printUrl(t.slug), \"_blank\", \"noopener\")}",
   "src/routes/temoignages/TemoignageEdit.tsx:249:window.open(temoignagesApi.bundleUrl(t.slug), \"_blank\", \"noopener\")",

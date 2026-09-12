@@ -7,7 +7,7 @@ import styles from "./Layout.module.css";
 export function Header({ onMenu }: { onMenu: () => void }) {
   const { user, logout } = useAuth();
   const initiales = user
-    ? `${user.first_name?.[0] ?? user.email[0]}${user.last_name?.[0] ?? ""}`.toUpperCase()
+    ? `${user.first_name?.[0] ?? user.username[0]}${user.last_name?.[0] ?? ""}`.toUpperCase()
     : "??";
 
   return (
@@ -21,10 +21,8 @@ export function Header({ onMenu }: { onMenu: () => void }) {
         <Menu size={21} />
       </button>
       <div className={styles.brand}>
-        <span className={styles.brandMark} aria-hidden>
-          R
-        </span>
-        <span>Roc Séculaire</span>
+        <img className={styles.brandLogo} src="/logo-rst.png" alt="Logo Roc Séculaire Tabernacle" />
+        <span>Roc Séculaire Tabernacle</span>
         <span className={styles.brandTag}>Équipe</span>
       </div>
       <div className={styles.spacer} />
@@ -45,11 +43,11 @@ export function Header({ onMenu }: { onMenu: () => void }) {
             <Link
               to="/reglages"
               className={styles.userPill}
-              title={user.email}
+              title={user.username}
               aria-label="Mon compte"
             >
               <span className={styles.avatar}>{initiales}</span>
-              <span>{user.email}</span>
+              <span>{user.username}</span>
             </Link>
             <button
               type="button"
