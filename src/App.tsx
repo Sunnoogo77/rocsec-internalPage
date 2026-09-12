@@ -5,6 +5,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { MainLayout } from "./components/layout/MainLayout";
 import { LoginPage } from "./routes/Login";
+import { ChangePasswordPage } from "./routes/ChangePassword";
 import { DashboardPage } from "./routes/Dashboard";
 import { SermonsListPage } from "./routes/sermons/SermonsList";
 import { SermonEditPage } from "./routes/sermons/SermonEdit";
@@ -46,6 +47,14 @@ export function App() {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/changer-mot-de-passe"
+              element={
+                <ProtectedRoute allowPasswordChange>
+                  <ChangePasswordPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               element={
                 <ProtectedRoute>

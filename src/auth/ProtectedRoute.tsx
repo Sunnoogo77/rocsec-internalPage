@@ -4,9 +4,10 @@ import { useAuth } from "./AuthContext";
 
 interface ProtectedRouteProps {
   children: ReactNode;
+  allowPasswordChange?: boolean;
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, allowPasswordChange = false }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -15,7 +16,14 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+    const from = allowPasswordChange
+      ? (location.state as { from?: string } | null)?.from ?? "/"
+      : location.pathname;
+    return <Navigate to="/login" state={{ from }} replace />;
+  }
+
+  if (user.must_change_password && !allowPasswordChange) {
+    return <Navigate to="/changer-mot-de-passe" state={{ from: location.pathname }} replace />;
   }
 
   return <>{children}</>;

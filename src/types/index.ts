@@ -30,6 +30,7 @@ export interface User {
   is_staff: boolean;
   is_superuser: boolean;
   has_2fa: boolean;
+  must_change_password: boolean;
   last_login: string | null;
   date_joined: string;
 }

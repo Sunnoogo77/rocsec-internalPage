@@ -1,24 +1,13 @@
 .page {
   min-height: 100svh;
   display: grid;
-  place-items: center;
-  padding: 48px 24px;
-  background: var(--gray-50);
-}
-.panel {
-  display: grid;
-  grid-template-columns: 0.9fr 1fr;
-  width: min(100%, 960px);
-  overflow: hidden;
-  border: 1px solid var(--gray-200);
-  border-radius: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   background: var(--surface);
-  box-shadow: 0 14px 50px rgb(15 35 65 / 8%);
 }
 .portraits {
   position: relative;
   min-width: 0;
-  min-height: 580px;
+  min-height: 100svh;
   background: #242321;
   overflow: hidden;
 }
@@ -28,89 +17,56 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 25%;
+  object-position: center 30%;
   opacity: 0;
-  filter: blur(6px);
-  transition:
-    opacity 2.4s ease,
-    filter 2.4s ease;
+  transition: opacity 2.4s ease;
 }
 .visible {
   opacity: 1;
-  filter: blur(0);
 }
-.portraitCaption {
-  position: absolute;
-  inset: auto 16px 16px;
+.formPanel {
+  min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid rgb(255 255 255 / 24%);
-  border-radius: 8px;
-  background: rgb(12 18 27 / 78%);
-  backdrop-filter: blur(12px);
-  color: white;
-  font-size: 12px;
-}
-.portraitControls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.portraitControls button {
-  min-height: 36px;
-  min-width: 36px;
-  padding: 4px 8px;
-  background: transparent;
-  color: white;
-  border: 1px solid rgb(255 255 255 / 35%);
-  border-radius: 5px;
-  cursor: pointer;
-  font: inherit;
-}
-.portraitControls button:hover {
-  background: rgb(255 255 255 / 15%);
-}
-.portraitControls button:focus-visible {
-  outline: 2px solid white;
-  outline-offset: 3px;
+  justify-content: center;
+  padding: 56px clamp(28px, 6vw, 100px);
 }
 .card {
-  min-width: 0;
-  padding: 44px 42px;
+  width: 100%;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 26px;
+  gap: 30px;
 }
 .brand {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
 }
 .logo {
-  width: 100px;
-  height: 52px;
+  width: 124px;
+  height: 68px;
   object-fit: contain;
 }
 .brandTitle {
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 650;
   color: var(--gray-900);
   line-height: 1.4;
 }
-.brandTag {
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--gray-500);
+.welcome {
+  text-align: center;
+  margin: 8px 0 0;
 }
 .welcome h1 {
-  font-size: 28px;
-  letter-spacing: -0.025em;
-  margin: 4px 0 8px;
+  color: var(--gray-900);
+  font-size: clamp(28px, 2.6vw, 36px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 0 0 12px;
 }
 .welcome p {
   color: var(--gray-500);
@@ -121,68 +77,63 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
 }
 .actions {
   display: flex;
   flex-direction: column;
   margin-top: 6px;
 }
+.alert,
+.notice {
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+}
 .alert {
   background: var(--red-50);
   border: 1px solid var(--red-100);
   color: var(--red-700);
-  padding: 10px 12px;
-  border-radius: 6px;
-  font-size: 13px;
+}
+.notice {
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  color: var(--blue-700);
 }
 .helper {
   margin: 0;
   color: var(--gray-500);
+  text-align: center;
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 @media (max-width: 700px) {
   .page {
-    padding: 20px 14px;
-  }
-  .panel {
     grid-template-columns: 1fr;
-    max-width: 440px;
   }
   .portraits {
-    min-height: 250px;
+    min-height: clamp(220px, 32svh, 300px);
   }
   .portrait {
-    object-fit: contain;
-    object-position: center top;
+    object-position: center 28%;
+  }
+  .formPanel {
+    padding: 34px 28px 40px;
   }
   .card {
-    padding: 26px 24px;
-    gap: 22px;
-  }
-  .brand {
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
+    gap: 26px;
   }
   .logo {
-    width: 72px;
-    height: 44px;
-    flex-shrink: 0;
+    width: 112px;
+    height: 58px;
   }
   .brandTitle {
-    font-size: 15px;
+    font-size: 17px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .portrait {
     transition: none;
-    filter: none;
   }
-}
-
-:global([data-theme="dark"]) .logo {
-  background: #fff;
-  border-radius: 6px;
 }

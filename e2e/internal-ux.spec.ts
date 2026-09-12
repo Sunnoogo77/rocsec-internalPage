@@ -42,6 +42,7 @@ const user = {
   is_superuser: false,
   role: "validateur",
   has_2fa: true,
+  must_change_password: false,
 };
 const testimony = (slug = "esperance", statut = "recu") => ({
   id: slug,

@@ -2,15 +2,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from "react";
 import { api, HttpError } from "@/api/client";
 import type { User } from "@/types";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
+  passwordChanged: boolean;
   login: (
     username: string,
     password: string,
     otpToken?: string,
-  ) => Promise<{ requiresOtp?: boolean }>;
+  ) => Promise<{ requiresOtp?: boolean; requiresPasswordChange?: boolean }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -18,8 +21,10 @@ interface AuthState {
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const cache = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [passwordChanged, setPasswordChanged] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -51,8 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         otp_token: otpToken ?? "",
       });
       await api.ensureCsrf();
+      setPasswordChanged(false);
       setUser(me);
-      return {};
+      return { requiresPasswordChange: me.must_change_password };
     } catch (err) {
       if (err instanceof HttpError) {
         const requiresOtp = (err.details as { requires_otp?: boolean } | undefined)?.requires_otp;
@@ -71,11 +77,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
     setUser(null);
-  }, []);
+    cache.clear();
+  }, [cache]);
+
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      await api.post("/auth/password/", {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setPasswordChanged(true);
+      setUser(null);
+      cache.clear();
+    },
+    [cache],
+  );
 
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, logout, refresh }),
-    [user, loading, login, logout, refresh],
+    () => ({ user, loading, login, logout, refresh, changePassword, passwordChanged }),
+    [user, loading, login, logout, refresh, changePassword, passwordChanged],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

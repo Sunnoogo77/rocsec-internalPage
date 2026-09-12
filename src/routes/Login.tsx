@@ -6,13 +6,12 @@ import { HttpError } from "@/api";
 import styles from "./Login.module.css";
 
 const portraits = [
-  { src: "/images/jesus.jpg", name: "Jésus-Christ" },
+  { src: "/images/jesus-login.png", name: "Jésus-Christ" },
   { src: "/images/wmb-portrait.jpeg", name: "William Marrion Branham" },
 ];
 
 function Portraits() {
   const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
@@ -23,12 +22,12 @@ function Portraits() {
     return () => preference.removeEventListener("change", update);
   }, []);
   useEffect(() => {
-    if (paused || reducedMotion) return;
+    if (reducedMotion) return;
     const timer = window.setInterval(() => {
       if (!document.hidden) setActive((current) => (current + 1) % portraits.length);
     }, 30_000);
     return () => window.clearInterval(timer);
-  }, [paused, reducedMotion]);
+  }, [reducedMotion]);
   return (
     <section className={styles.portraits} aria-label="Portraits de l’assemblée">
       {portraits.map((portrait, index) => (
@@ -40,36 +39,16 @@ function Portraits() {
           className={`${styles.portrait} ${index === active ? styles.visible : ""}`}
         />
       ))}
-      <div className={styles.portraitCaption}>
-        <span>{portraits[active].name}</span>
-        <div className={styles.portraitControls}>
-          <button
-            type="button"
-            onClick={() => setActive((current) => (current + 1) % portraits.length)}
-            aria-label="Afficher l’autre portrait"
-          >
-            ↔
-          </button>
-          {!reducedMotion && (
-            <button
-              type="button"
-              onClick={() => setPaused((current) => !current)}
-              aria-label={paused ? "Reprendre le défilement" : "Mettre le défilement en pause"}
-            >
-              {paused ? "Reprendre" : "Pause"}
-            </button>
-          )}
-        </div>
-      </div>
     </section>
   );
 }
 
 export function LoginPage() {
-  const { user, login } = useAuth();
+  const { user, login, passwordChanged } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/";
+  const state = location.state as { from?: string; passwordChanged?: boolean } | null;
+  const from = state?.from && state.from !== "/changer-mot-de-passe" ? state.from : "/";
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -79,7 +58,13 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (user) {
-    return <Navigate to={from} replace />;
+    return (
+      <Navigate
+        to={user.must_change_password ? "/changer-mot-de-passe" : from}
+        state={{ from }}
+        replace
+      />
+    );
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -93,7 +78,10 @@ export function LoginPage() {
         setSubmitting(false);
         return;
       }
-      navigate(from, { replace: true });
+      navigate(result.requiresPasswordChange ? "/changer-mot-de-passe" : from, {
+        replace: true,
+        state: { from },
+      });
     } catch (err) {
       if (err instanceof HttpError) {
         setError(err.message);
@@ -106,22 +94,28 @@ export function LoginPage() {
   };
 
   return (
-    <div className={styles.page}>
-      <div className={styles.panel}>
-        <Portraits />
+    <main className={styles.page}>
+      <Portraits />
+      <section className={styles.formPanel} aria-label="Connexion">
         <div className={styles.card}>
           <div className={styles.brand}>
-            <img className={styles.logo} src="/logo-rst.png" alt="Logo Roc Séculaire Tabernacle" />
-            <div>
-              <div className={styles.brandTitle}>Roc Séculaire Tabernacle</div>
-              <div className={styles.brandTag}>Espace de gestion</div>
-            </div>
+            <img
+              className={styles.logo}
+              src="/logo-rst-white.svg"
+              alt="Logo Roc Séculaire Tabernacle"
+            />
+            <div className={styles.brandTitle}>Roc Séculaire Tabernacle</div>
           </div>
 
           <div className={styles.welcome}>
             <h1>Bienvenue</h1>
-            <p>Connectez-vous à votre espace de travail.</p>
+            <p>Connectez-vous à votre espace de gestion.</p>
           </div>
+          {(state?.passwordChanged || passwordChanged) && (
+            <p role="status" className={styles.notice}>
+              Votre mot de passe a été modifié. Connectez-vous avec votre nouveau mot de passe.
+            </p>
+          )}
           {error ? (
             <div role="alert" className={styles.alert}>
               {error}
@@ -140,7 +134,6 @@ export function LoginPage() {
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               required
-              placeholder="frere.jean"
             />
             <Input
               label="Mot de passe"
@@ -150,6 +143,7 @@ export function LoginPage() {
               onChange={(event) => setPassword(event.target.value)}
               required
               minLength={12}
+              maxLength={256}
             />
             {otpRequired ? (
               <Input
@@ -176,7 +170,7 @@ export function LoginPage() {
             Mot de passe oublié&nbsp;? Contactez l'administrateur du site.
           </p>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

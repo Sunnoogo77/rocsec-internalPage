@@ -21,7 +21,7 @@ export function Header({ onMenu }: { onMenu: () => void }) {
         <Menu size={21} />
       </button>
       <div className={styles.brand}>
-        <img className={styles.brandLogo} src="/logo-rst.png" alt="Logo Roc Séculaire Tabernacle" />
+        <img className={styles.brandLogo} src="/logo-rst-white.svg" alt="Logo Roc Séculaire Tabernacle" />
         <span>Roc Séculaire Tabernacle</span>
         <span className={styles.brandTag}>Équipe</span>
       </div>

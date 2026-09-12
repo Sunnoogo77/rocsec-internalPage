@@ -317,8 +317,3 @@
 .main textarea {
   scroll-margin-block: 100px;
 }
-
-:global([data-theme="dark"]) .brandLogo {
-  background: #fff;
-  border-radius: 4px;
-}

@@ -8,6 +8,7 @@ const user = {
   is_superuser: false,
   role: "editeur",
   has_2fa: true,
+  must_change_password: false,
 };
 
 test("une route privée demande une connexion et ne propose aucune inscription", async ({
@@ -87,7 +88,7 @@ test("la route comptes ne charge aucune donnée pour un éditeur", async ({ page
   expect(accountRequests).toBe(0);
 });
 
-test("les portraits alternent après trente secondes et peuvent être mis en pause", async ({
+test("la connexion occupe l’écran et les portraits alternent seuls toutes les trente secondes", async ({
   page,
 }) => {
   await page.clock.install();
@@ -98,16 +99,26 @@ test("les portraits alternent après trente secondes et peuvent être mis en pau
   await expect(jesus).toBeVisible();
   await expect(branham).toHaveCount(0);
   await expect(page.getByLabel("Nom d’utilisateur")).toHaveAttribute("autocomplete", "username");
+  await expect(page.getByLabel("Nom d’utilisateur")).not.toHaveAttribute("placeholder");
   await expect(page.locator('input[type="email"]')).toHaveCount(0);
-  await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/logo-rst.png");
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/logo-rst-white.svg");
   await expect(page.getByRole("img", { name: "Logo Roc Séculaire Tabernacle" })).toBeVisible();
+  await expect(jesus).toHaveAttribute("src", "/images/jesus-login.png");
+  const portraits = page.getByRole("region", { name: "Portraits de l’assemblée" });
+  await expect(portraits.locator("button, a, p, span")).toHaveCount(0);
+  expect(await portraits.innerText()).toBe("");
+  if (test.info().project.name === "desktop") {
+    const bounds = await portraits.boundingBox();
+    const viewport = page.viewportSize()!;
+    expect(bounds).toEqual({ x: 0, y: 0, width: viewport.width / 2, height: viewport.height });
+    const logo = await page
+      .getByRole("img", { name: "Logo Roc Séculaire Tabernacle" })
+      .boundingBox();
+    expect(logo!.x + logo!.width / 2).toBeCloseTo(viewport.width * 0.75, 0);
+  }
   await page.clock.fastForward(30_000);
   await expect(branham).toBeVisible();
   await expect(jesus).toHaveCount(0);
-  await page.getByRole("button", { name: "Mettre le défilement en pause" }).click();
-  await page.clock.fastForward(60_000);
-  await expect(branham).toBeVisible();
-  await page.getByRole("button", { name: "Reprendre le défilement" }).click();
   await page.clock.fastForward(30_000);
   await expect(jesus).toBeVisible();
 });
@@ -122,8 +133,8 @@ test("la connexion respecte le thème sombre et la réduction des animations", a
   await page.clock.fastForward(60_000);
   await expect(page.getByRole("img", { name: "Jésus-Christ" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Mettre le défilement en pause" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Afficher l’autre portrait" }).click();
-  await expect(page.getByRole("img", { name: "William Marrion Branham" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Afficher l’autre portrait" })).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "William Marrion Branham" })).toHaveCount(0);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBeTruthy();
@@ -153,7 +164,15 @@ test("un administrateur crée un compte avec un nom d’utilisateur sans email",
       json: {
         count: created ? 1 : 0,
         results: created
-          ? [{ id: "2", username: "soeur.marie", is_active: true, role: "editeur" }]
+          ? [
+              {
+                id: "2",
+                username: "soeur.marie",
+                is_active: true,
+                role: "editeur",
+                must_change_password: true,
+              },
+            ]
           : [],
       },
     });
@@ -164,4 +183,128 @@ test("un administrateur crée un compte avec un nom d’utilisateur sans email",
   await expect(page.locator('input[type="email"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Créer le compte" }).click();
   await expect(page.getByText("soeur.marie", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/elle devra choisir son propre mot de passe à sa première connexion/),
+  ).toBeVisible();
+  await expect(page.getByText(/Mot de passe à renouveler/)).toBeVisible();
+});
+
+test("un mot de passe temporaire bloque les liens directs vers tous les espaces privés", async ({
+  page,
+}) => {
+  let contentRequests = 0;
+  await page.route("**/api/v1/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/me/"))
+      return route.fulfill({ json: { ...user, must_change_password: true, has_2fa: false } });
+    if (path.endsWith("/csrf/")) return route.fulfill({ json: { csrf: "synthetic-csrf" } });
+    contentRequests++;
+    return route.fulfill({ status: 403, json: { code: "password_change_required" } });
+  });
+  for (const path of ["/comptes", "/reglages", "/sermons"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/changer-mot-de-passe$/);
+    await expect(
+      page.getByRole("heading", { name: "Choisissez votre mot de passe" }),
+    ).toBeVisible();
+    await expect(page.getByRole("navigation")).toHaveCount(0);
+  }
+  expect(contentRequests).toBe(0);
+  await page.screenshot({
+    path: `test-results/password-first-${test.info().project.name}.png`,
+    fullPage: true,
+  });
+});
+
+test("la première connexion impose un mot de passe personnel puis une nouvelle connexion", async ({
+  page,
+}) => {
+  let loggedIn = false;
+  let mustChange = true;
+  let passwordWrites = 0;
+  const temporary = "Temporary-test.7363!";
+  const personal = "Personal-test.6281!";
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/csrf/")) return route.fulfill({ json: { csrf: "synthetic-csrf" } });
+    const me = { ...user, has_2fa: false, must_change_password: mustChange };
+    if (path.endsWith("/me/"))
+      return route.fulfill({ status: loggedIn ? 200 : 403, json: loggedIn ? me : {} });
+    if (path.endsWith("/login/")) {
+      expect(route.request().postDataJSON().password).toBe(mustChange ? temporary : personal);
+      loggedIn = true;
+      return route.fulfill({ json: me });
+    }
+    if (path.endsWith("/password/")) {
+      expect(route.request().headers()["x-csrftoken"]).toBe("synthetic-csrf");
+      expect(route.request().postDataJSON()).toEqual({
+        current_password: temporary,
+        new_password: personal,
+      });
+      passwordWrites++;
+      mustChange = false;
+      loggedIn = false;
+      return route.fulfill({ status: 204 });
+    }
+    return route.fulfill({ json: { is_recent: false, count: 0, results: [] } });
+  });
+  await page.goto("/reglages");
+  await page.getByLabel("Nom d’utilisateur").fill(user.username);
+  await page.getByLabel(/^Mot de passe/).fill(temporary);
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await expect(page).toHaveURL(/\/changer-mot-de-passe$/);
+  await page.getByLabel("Mot de passe temporaire").fill(temporary);
+  await page.getByLabel(/^Nouveau mot de passe/).fill(personal);
+  await page.getByLabel("Confirmer le nouveau mot de passe").fill("Different-password.6736!");
+  await page.getByRole("button", { name: "Enregistrer et me reconnecter" }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Les deux nouveaux mots de passe ne correspondent pas.",
+  );
+  expect(passwordWrites).toBe(0);
+  await page.getByLabel("Confirmer le nouveau mot de passe").fill(personal);
+  await page.getByRole("button", { name: "Enregistrer et me reconnecter" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("status")).toContainText("Votre mot de passe a été modifié");
+  expect(passwordWrites).toBe(1);
+  await page.getByLabel("Nom d’utilisateur").fill(user.username);
+  await page.getByLabel(/^Mot de passe/).fill(personal);
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await expect(page.getByRole("heading", { name: "Mon compte", exact: true })).toBeVisible();
+});
+
+test("un compte avec MFA vérifie un nouveau code avant de remplacer son mot de passe temporaire", async ({
+  page,
+}) => {
+  let recent = false;
+  const writes: string[] = [];
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/csrf/")) return route.fulfill({ json: { csrf: "synthetic-csrf" } });
+    if (path.endsWith("/me/"))
+      return route.fulfill({ json: { ...user, must_change_password: true } });
+    if (path.endsWith("/step-up/")) {
+      if (route.request().method() === "POST") {
+        expect(route.request().postDataJSON()).toEqual({ token: "654321" });
+        expect(route.request().headers()["x-csrftoken"]).toBe("synthetic-csrf");
+        recent = true;
+        writes.push("step-up");
+      }
+      return route.fulfill({ json: { is_recent: recent } });
+    }
+    if (path.endsWith("/password/")) {
+      expect(recent).toBe(true);
+      writes.push("password");
+      return route.fulfill({ status: 204 });
+    }
+    return route.fulfill({ status: 403, json: {} });
+  });
+  await page.goto("/changer-mot-de-passe");
+  await page.getByLabel("Mot de passe temporaire").fill("Temporary-test.7363!");
+  await page.getByLabel(/^Nouveau mot de passe/).fill("Personal-test.6281!");
+  await page.getByLabel("Confirmer le nouveau mot de passe").fill("Personal-test.6281!");
+  await expect(page.getByText(/prochain code de votre application/)).toBeVisible();
+  await page.getByLabel("Code de vérification").fill("654321");
+  await page.getByRole("button", { name: "Enregistrer et me reconnecter" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  expect(writes).toEqual(["step-up", "password"]);
 });

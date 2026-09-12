@@ -14,6 +14,7 @@ interface ManagedAccount {
   last_name: string;
   role: "editeur" | "validateur";
   is_active: boolean;
+  must_change_password: boolean;
 }
 
 export function ComptesPage() {
@@ -79,6 +80,7 @@ export function ComptesPage() {
                       <p>
                         {account.role === "validateur" ? "Validateur" : "Éditeur"} ·{" "}
                         {account.is_active ? "Actif" : "Désactivé"}
+                        {account.must_change_password ? " · Mot de passe à renouveler" : ""}
                       </p>
                     </div>
                     <Button
@@ -130,14 +132,15 @@ export function ComptesPage() {
                 maxLength={256}
                 required
                 autoComplete="new-password"
-                help="Au moins 12 caractères. À transmettre directement à la personne concernée."
+                help="Au moins 12 caractères. La personne devra le remplacer à sa première connexion."
               />
               <Button type="submit" variant="primary" disabled={create.isPending}>
                 {create.isPending ? "Création…" : "Créer le compte"}
               </Button>
               {create.isSuccess && (
                 <p role="status">
-                  Le compte est créé. La personne pourra changer son mot de passe dans Réglages.
+                  Le compte est créé. Transmettez ses identifiants à la personne : elle devra
+                  choisir son propre mot de passe à sa première connexion.
                 </p>
               )}
             </form>
